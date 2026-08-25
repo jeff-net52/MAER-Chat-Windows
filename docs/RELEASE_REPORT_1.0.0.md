@@ -20,8 +20,8 @@ Le smoke test vérifie le chargement du wordmark MAER, la navigation accueil →
 
 `MAER-Chat-Setup-1.0.0-x64.exe`
 
-- Taille : 117 477 271 octets.
-- SHA-256 : `8d8bba3ec0caa7ee83883e7efb004b56c29cd2c994028cd6fc97946e6243406b`
+- Taille : 117 472 959 octets.
+- SHA-256 : `b9450d40abfe5ace1292f626455ab932b372467caeeedc32c8266fa5d8296b27`
 - Architecture : Windows x64.
 - Installation : NSIS assisté, par utilisateur, choix du dossier et raccourci bureau.
 - Authenticode : **NotSigned**. Aucun certificat de signature n’a été fourni ; Windows SmartScreen peut donc afficher un avertissement.
