@@ -1,0 +1,109 @@
+import { normalizeLoginJid } from './jid'
+
+export interface DesktopCredential {
+  version: 1
+  authKind: 'password' | 'oauth'
+  secret: string
+  deviceId?: string
+  expiresAt?: string
+}
+
+export interface PreparedPasswordLogin {
+  jid: string
+  password: string
+  remember: boolean
+}
+
+export interface SaveCredentialInput {
+  jid: string
+  remember: boolean
+  credential: DesktopCredential
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new Error('Requête du client invalide')
+  }
+  return value as Record<string, unknown>
+}
+
+function requiredBoolean(value: unknown, field: string): boolean {
+  if (typeof value !== 'boolean') {
+    throw new Error(`Champ invalide : ${field}`)
+  }
+  return value
+}
+
+export function parseAccountInput(value: unknown): string {
+  if (typeof value !== 'string') {
+    throw new Error('Compte XMPP invalide')
+  }
+  return normalizeLoginJid(value, true, 'contacts.chaumont.me')
+}
+
+export function parsePrepareLoginInput(value: unknown): PreparedPasswordLogin {
+  const input = asRecord(value)
+  if (
+    typeof input.identifier !== 'string' ||
+    typeof input.password !== 'string' ||
+    input.password.length === 0
+  ) {
+    throw new Error('Identifiant ou mot de passe invalide')
+  }
+  const advanced = requiredBoolean(input.advanced, 'advanced')
+  const remember = requiredBoolean(input.remember, 'remember')
+  return {
+    jid: normalizeLoginJid(
+      input.identifier,
+      advanced,
+      'contacts.chaumont.me',
+    ),
+    password: input.password,
+    remember,
+  }
+}
+
+function parseCredential(value: unknown): DesktopCredential {
+  const credential = asRecord(value)
+  if (
+    credential.version !== 1 ||
+    (credential.authKind !== 'password' && credential.authKind !== 'oauth') ||
+    typeof credential.secret !== 'string' ||
+    credential.secret.length === 0
+  ) {
+    throw new Error('Identifiant sécurisé invalide')
+  }
+
+  if (credential.authKind === 'oauth') {
+    if (
+      typeof credential.deviceId !== 'string' ||
+      credential.deviceId.length === 0 ||
+      typeof credential.expiresAt !== 'string' ||
+      Number.isNaN(Date.parse(credential.expiresAt))
+    ) {
+      throw new Error('Jeton d’appareil invalide')
+    }
+    return {
+      version: 1,
+      authKind: 'oauth',
+      secret: credential.secret,
+      deviceId: credential.deviceId,
+      expiresAt: credential.expiresAt,
+    }
+  }
+
+  return {
+    version: 1,
+    authKind: 'password',
+    secret: credential.secret,
+  }
+}
+
+export function parseSaveCredentialInput(value: unknown): SaveCredentialInput {
+  const input = asRecord(value)
+  return {
+    jid: parseAccountInput(input.jid),
+    remember: requiredBoolean(input.remember, 'remember'),
+    credential: parseCredential(input.credential),
+  }
+}

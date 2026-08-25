@@ -1,0 +1,109 @@
+import { describe, expect, it, vi } from 'vitest'
+import { createDesktopHandlers } from '../src/main/ipc-handlers'
+
+function dependencies() {
+  return {
+    appVersion: '1.0.0',
+    deviceName: 'PC Atelier',
+    endpoints: {
+      domain: 'contacts.chaumont.me',
+      websocketUrl: 'wss://contacts.chaumont.me/xmpp-websocket',
+      boshServiceUrl: 'https://contacts.chaumont.me/http-bind',
+      pairingApiBaseUrl: 'https://contacts.chaumont.me/maer-pair/v1',
+    },
+    credentials: {
+      listAccounts: vi.fn(async () => ['alice@contacts.chaumont.me']),
+      load: vi.fn(async () => ({
+        version: 1 as const,
+        authKind: 'password' as const,
+        secret: 'stored-secret',
+      })),
+      save: vi.fn(async () => undefined),
+      delete: vi.fn(async () => true),
+    },
+    pairing: {
+      begin: vi.fn(async () => ({
+        sessionId: 'session_1234567890abcdef',
+        approvalUri: 'maerchat://pair?v=1&sid=session_1234567890abcdef',
+        verificationCode: '804261',
+        expiresAt: '2026-08-24T22:12:00.000Z',
+      })),
+      poll: vi.fn(async () => ({ status: 'pending' as const })),
+      cancel: vi.fn(async () => undefined),
+    },
+  }
+}
+
+describe('desktop IPC handlers', () => {
+  it('bootstraps with public configuration and remembered account names only', async () => {
+    const deps = dependencies()
+    const handlers = createDesktopHandlers(deps)
+
+    const result = await handlers.bootstrap()
+
+    expect(result).toMatchObject({
+      version: '1.0.0',
+      deviceName: 'PC Atelier',
+      accounts: ['alice@contacts.chaumont.me'],
+      endpoints: deps.endpoints,
+    })
+    expect(JSON.stringify(result)).not.toMatch(/stored-secret|password|access_token/i)
+  })
+
+  it('normalizes password login without persisting before authentication', async () => {
+    const deps = dependencies()
+    const handlers = createDesktopHandlers(deps)
+
+    await expect(
+      handlers.preparePasswordLogin({
+        identifier: 'alice',
+        password: 'not-yet-validated',
+        advanced: false,
+        remember: true,
+      }),
+    ).resolves.toEqual({
+      jid: 'alice@contacts.chaumont.me',
+      credential: {
+        version: 1,
+        authKind: 'password',
+        secret: 'not-yet-validated',
+      },
+      remember: true,
+    })
+    expect(deps.credentials.save).not.toHaveBeenCalled()
+  })
+
+  it('stores only a renderer-confirmed valid credential', async () => {
+    const deps = dependencies()
+    const handlers = createDesktopHandlers(deps)
+    const credential = {
+      version: 1 as const,
+      authKind: 'oauth' as const,
+      secret: 'opaque-token',
+      deviceId: 'device-42',
+      expiresAt: '2026-09-24T22:12:00.000Z',
+    }
+
+    await handlers.saveValidatedCredential({
+      jid: 'alice@contacts.chaumont.me',
+      remember: true,
+      credential,
+    })
+
+    expect(deps.credentials.save).toHaveBeenCalledWith('alice@contacts.chaumont.me', credential)
+  })
+
+  it('owns QR pairing and validates the session ID crossing IPC', async () => {
+    const deps = dependencies()
+    const handlers = createDesktopHandlers(deps)
+
+    await handlers.beginPairing()
+    await handlers.pollPairing('session_1234567890abcdef')
+    await handlers.cancelPairing('session_1234567890abcdef')
+
+    expect(deps.pairing.begin).toHaveBeenCalledWith('PC Atelier')
+    expect(deps.pairing.poll).toHaveBeenCalledWith('session_1234567890abcdef')
+    expect(deps.pairing.cancel).toHaveBeenCalledWith('session_1234567890abcdef')
+    await expect(handlers.pollPairing('../escape')).rejects.toThrow(/session/i)
+  })
+})

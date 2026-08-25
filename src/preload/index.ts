@@ -1,0 +1,51 @@
+import { contextBridge, ipcRenderer } from 'electron'
+import type { DesktopBridge } from '../renderer/onboarding-controller'
+import type { DesktopCredential } from '../shared/desktop-contract'
+import { IPC } from '../shared/ipc-channels'
+import {
+  mapBootstrap,
+  mapPairingPoll,
+  mapPreparedPasswordLogin,
+} from './bridge-adapter'
+
+const bridge: DesktopBridge = {
+  async getBootstrap() {
+    return mapBootstrap(await ipcRenderer.invoke(IPC.bootstrap))
+  },
+
+  async preparePasswordLogin(input) {
+    return mapPreparedPasswordLogin(
+      await ipcRenderer.invoke(IPC.preparePasswordLogin, input),
+    )
+  },
+
+  async beginPairing() {
+    return ipcRenderer.invoke(IPC.beginPairing)
+  },
+
+  async pollPairing(sessionId) {
+    return mapPairingPoll(await ipcRenderer.invoke(IPC.pollPairing, sessionId))
+  },
+
+  async cancelPairing(sessionId) {
+    await ipcRenderer.invoke(IPC.cancelPairing, sessionId)
+  },
+
+  async loadCredential(jid) {
+    const result = (await ipcRenderer.invoke(IPC.loadCredential, jid)) as {
+      jid: string
+      credential: DesktopCredential
+    }
+    return result.credential
+  },
+
+  async saveValidatedCredential(input) {
+    await ipcRenderer.invoke(IPC.saveValidatedCredential, input)
+  },
+
+  async deleteCredential(jid) {
+    return ipcRenderer.invoke(IPC.forgetCredential, jid)
+  },
+}
+
+contextBridge.exposeInMainWorld('maerDesktop', Object.freeze(bridge))
