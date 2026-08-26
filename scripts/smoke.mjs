@@ -39,7 +39,7 @@ try {
 
   await page.check('#advanced-jid')
   assert.equal(await page.locator('[data-role="domain-suffix"]').isVisible(), false)
-  await page.fill('#account-id', 'test@contacts.chaumont.me')
+  await page.fill('#account-id', 'test@xmpp.maer.fr')
   await page.fill('#account-password', 'temporary-not-a-real-secret')
   await page.click('[data-action="toggle-password"]')
   assert.equal(await page.locator('#account-password').getAttribute('type'), 'text')

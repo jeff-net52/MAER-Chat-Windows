@@ -1,5 +1,10 @@
 # Rapport de livraison — MAER Chat Windows 1.0.0
 
+> Rapport historique. Cette version cible l’ancien service et est supersédée
+> par la version 1.0.1 documentée dans `RELEASE_REPORT_1.0.1.md`.
+> Son installateur est archivé sous `Release/archive/1.0.0/` pour éviter toute
+> distribution accidentelle.
+
 Date de construction : 25 août 2026.
 
 ## Vérifications réussies

@@ -55,7 +55,7 @@ describe('PairingSessionManager', () => {
       })),
       poll: vi.fn(async () => ({
         status: 'approved' as const,
-        jid: 'alice@contacts.chaumont.me',
+        jid: 'alice@xmpp.maer.fr',
         accessToken: 'opaque-device-token',
         deviceId: 'device-42',
         tokenExpiresAt: '2026-09-24T22:12:00.000Z',

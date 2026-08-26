@@ -1,14 +1,18 @@
 # Déploiement serveur requis pour MAER Chat Windows
 
-Le contrôle a montré que `contacts.chaumont.me` répond actuellement en HTTPS, mais que les chemins publics `/xmpp-websocket`, `/http-bind` et `/maer-pairing/v1` renvoient 404, tandis que le port TLS ejabberd 5443 n’est pas joignable publiquement. Le client ne doit donc pas être déclaré opérationnel avant ce déploiement.
+Le contrôle du 26 août 2026 n’a obtenu aucune réponse HTTP de `xmpp.maer.fr` :
+la négociation TLS a échoué depuis le poste de construction sur les chemins
+`/.well-known/host-meta`, `/xmpp-websocket`, `/http-bind` et
+`/maer-pairing/v1`. Le client ne doit donc pas être déclaré opérationnel avant
+validation du certificat, du reverse proxy et des services ejabberd.
 
 ## 1. Endpoints cibles
 
-- `wss://contacts.chaumont.me/xmpp-websocket`
-- `https://contacts.chaumont.me/http-bind`
-- `https://contacts.chaumont.me/maer-pairing/v1`
-- `https://contacts.chaumont.me/.well-known/host-meta`
-- `https://contacts.chaumont.me/.well-known/host-meta.json`
+- `wss://xmpp.maer.fr/xmpp-websocket`
+- `https://xmpp.maer.fr/http-bind`
+- `https://xmpp.maer.fr/maer-pairing/v1`
+- `https://xmpp.maer.fr/.well-known/host-meta`
+- `https://xmpp.maer.fr/.well-known/host-meta.json`
 
 ## 2. Listener ejabberd local
 
@@ -102,9 +106,9 @@ L’API n’utilise ni cookie ni authentification navigateur. Les opérations se
 ## 5. Vérifications avant production
 
 ```bash
-curl -i https://contacts.chaumont.me/.well-known/host-meta
-curl -i https://contacts.chaumont.me/http-bind
-curl -i -X POST https://contacts.chaumont.me/maer-pairing/v1/sessions \
+curl -i https://xmpp.maer.fr/.well-known/host-meta
+curl -i https://xmpp.maer.fr/http-bind
+curl -i -X POST https://xmpp.maer.fr/maer-pairing/v1/sessions \
   -H 'Content-Type: application/json' -d '{}'
 ```
 

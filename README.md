@@ -1,6 +1,6 @@
 # MAER Chat pour Windows
 
-Client de bureau Windows 10/11 x64 pour le service XMPP MAER (`contacts.chaumont.me`). L’interface reprend les repères d’une messagerie de bureau moderne tout en utilisant uniquement la marque et les ressources MAER.
+Client de bureau Windows 10/11 x64 pour le service XMPP MAER (`xmpp.maer.fr`). L’interface reprend les repères d’une messagerie de bureau moderne tout en utilisant uniquement la marque et les ressources MAER.
 
 ## État du projet
 
@@ -8,7 +8,7 @@ Client de bureau Windows 10/11 x64 pour le service XMPP MAER (`contacts.chaumont
 - Interface française claire/sombre, connexion QR ou identifiant/mot de passe.
 - Moteur XMPP Converse.js 14 : conversations privées et groupes, MAM, HTTP Upload, réponses, corrections, réactions, retraits, accusés, notifications et OMEMO.
 - Secrets enregistrés dans le Gestionnaire d’identifiants Windows (`@napi-rs/keyring`).
-- 52 tests automatisés actuellement réussis.
+- 54 tests automatisés actuellement réussis.
 
 Deux prérequis serveur restent nécessaires avant les essais réels :
 
@@ -20,7 +20,7 @@ Le client Android n’est pas modifié dans ce dépôt. Les instructions destin�
 ## Développement
 
 ```bash
-npm install
+npm ci
 npm test
 npm run typecheck
 npm run build
@@ -32,7 +32,9 @@ npm run build
 npm run dist
 ```
 
-L’installateur NSIS x64 est généré sous `dist/`.
+L’installateur NSIS x64 est généré sous `dist/`. La dernière livraison validée est
+`Release/MAER-Chat-Setup-1.0.1-x64.exe` ; voir
+`docs/RELEASE_REPORT_1.0.1.md`.
 
 ## Sécurité
 

@@ -34,7 +34,7 @@ Ne fais pas passer `maerchat://` par `ScanResultProcessor`, qui retourne uniquem
 
 1. `utils/MaerPairingUri.java`
    - parse uniquement `maerchat://pair` ;
-   - exige exactement `v=1`, `host=contacts.chaumont.me`, `sid` conforme à `[A-Za-z0-9_-]{16,128}` et `code` à six chiffres ;
+   - exige exactement `v=1`, `host=xmpp.maer.fr`, `sid` conforme à `[A-Za-z0-9_-]{16,128}` et `code` à six chiffres ;
    - refuse userinfo, fragment, port, paramètres dupliqués/inconnus, valeurs vides et URI surdimensionnée (>2048 caractères) ;
    - objet immuable, sans secret.
 
@@ -61,7 +61,7 @@ Ne fais pas passer `maerchat://` par `ScanResultProcessor`, qui retourne uniquem
 ### Lister
 
 ```xml
-<iq type='get' to='contacts.chaumont.me'>
+<iq type='get' to='xmpp.maer.fr'>
   <devices xmlns='urn:maer:pairing:1'/>
 </iq>
 ```
@@ -80,7 +80,7 @@ Réponse attendue :
 Après scan, afficher une boîte de confirmation. Ne rien envoyer avant action positive.
 
 ```xml
-<iq type='set' to='contacts.chaumont.me'>
+<iq type='set' to='xmpp.maer.fr'>
   <approve xmlns='urn:maer:pairing:1' session='…' code='123456'/>
 </iq>
 ```
@@ -90,7 +90,7 @@ Succès : enfant `<approved device-id='…'/>`. Afficher « Ordinateur associ�
 ### Révoquer
 
 ```xml
-<iq type='set' to='contacts.chaumont.me'>
+<iq type='set' to='xmpp.maer.fr'>
   <revoke xmlns='urn:maer:pairing:1' device-id='…'/>
 </iq>
 ```
@@ -106,7 +106,7 @@ Déclarer l’activité dans le manifeste du flavor réellement livré. Respecte
 ## Sécurité et concurrence
 
 - Le `from` n’est jamais construit dans l’IQ : ejabberd l’ajoute depuis la session authentifiée.
-- Le domaine cible vient de l’`Account`, mais doit être exactement `contacts.chaumont.me` pour v1.
+- Le domaine cible vient de l’`Account`, mais doit être exactement `xmpp.maer.fr` pour v1.
 - Ne fais aucun appel HTTP pour approuver ; l’authentification repose sur la session XMPP.
 - Masque tout contenu sensible dans `Log`; loguer seulement un code d’état.
 - Empêche double clic/double approbation et annule les callbacks quand l’activité est détruite.

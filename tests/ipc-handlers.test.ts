@@ -6,13 +6,13 @@ function dependencies() {
     appVersion: '1.0.0',
     deviceName: 'PC Atelier',
     endpoints: {
-      domain: 'contacts.chaumont.me',
-      websocketUrl: 'wss://contacts.chaumont.me/xmpp-websocket',
-      boshServiceUrl: 'https://contacts.chaumont.me/http-bind',
-      pairingApiBaseUrl: 'https://contacts.chaumont.me/maer-pair/v1',
+      domain: 'xmpp.maer.fr',
+      websocketUrl: 'wss://xmpp.maer.fr/xmpp-websocket',
+      boshServiceUrl: 'https://xmpp.maer.fr/http-bind',
+      pairingApiBaseUrl: 'https://xmpp.maer.fr/maer-pairing/v1',
     },
     credentials: {
-      listAccounts: vi.fn(async () => ['alice@contacts.chaumont.me']),
+      listAccounts: vi.fn(async () => ['alice@xmpp.maer.fr']),
       load: vi.fn(async () => ({
         version: 1 as const,
         authKind: 'password' as const,
@@ -44,7 +44,7 @@ describe('desktop IPC handlers', () => {
     expect(result).toMatchObject({
       version: '1.0.0',
       deviceName: 'PC Atelier',
-      accounts: ['alice@contacts.chaumont.me'],
+      accounts: ['alice@xmpp.maer.fr'],
       endpoints: deps.endpoints,
     })
     expect(JSON.stringify(result)).not.toMatch(/stored-secret|password|access_token/i)
@@ -62,7 +62,7 @@ describe('desktop IPC handlers', () => {
         remember: true,
       }),
     ).resolves.toEqual({
-      jid: 'alice@contacts.chaumont.me',
+      jid: 'alice@xmpp.maer.fr',
       credential: {
         version: 1,
         authKind: 'password',
@@ -85,12 +85,12 @@ describe('desktop IPC handlers', () => {
     }
 
     await handlers.saveValidatedCredential({
-      jid: 'alice@contacts.chaumont.me',
+      jid: 'alice@xmpp.maer.fr',
       remember: true,
       credential,
     })
 
-    expect(deps.credentials.save).toHaveBeenCalledWith('alice@contacts.chaumont.me', credential)
+    expect(deps.credentials.save).toHaveBeenCalledWith('alice@xmpp.maer.fr', credential)
   })
 
   it('owns QR pairing and validates the session ID crossing IPC', async () => {

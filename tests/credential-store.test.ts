@@ -38,26 +38,35 @@ describe('CredentialStore', () => {
     const backend = new MemoryBackend()
     const store = new CredentialStore(backend)
 
-    await store.save('emilien@contacts.chaumont.me', oauthCredential)
+    await store.save('emilien@xmpp.maer.fr', oauthCredential)
 
-    await expect(store.load('emilien@contacts.chaumont.me')).resolves.toEqual(
+    await expect(store.load('emilien@xmpp.maer.fr')).resolves.toEqual(
       oauthCredential,
     )
-    expect(backend.values.get('emilien@contacts.chaumont.me')).not.toBe('opaque-token')
+    expect(backend.values.get('emilien@xmpp.maer.fr')).not.toBe('opaque-token')
   })
 
-  it('stores a password without exposing it in account metadata', async () => {
+  it('lists only current-domain accounts without deleting legacy credentials', async () => {
     const backend = new MemoryBackend()
     const store = new CredentialStore(backend)
 
-    await store.save('alice@example.org', {
+    await store.save('alice@xmpp.maer.fr', {
       version: 1,
       authKind: 'password',
       secret: 'correct horse battery staple',
     })
+    backend.values.set(
+      'legacy@contacts.chaumont.me',
+      JSON.stringify({
+        version: 1,
+        authKind: 'password',
+        secret: 'legacy-secret',
+      }),
+    )
 
-    await expect(store.listAccounts()).resolves.toEqual(['alice@example.org'])
+    await expect(store.listAccounts()).resolves.toEqual(['alice@xmpp.maer.fr'])
     expect(JSON.stringify(await store.listAccounts())).not.toContain('correct horse')
+    expect(backend.values.has('legacy@contacts.chaumont.me')).toBe(true)
   })
 
   it('fails closed for malformed stored data', async () => {

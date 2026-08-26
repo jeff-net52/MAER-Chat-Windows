@@ -15,7 +15,7 @@ describe('desktop IPC contract', () => {
         remember: true,
       }),
     ).toEqual({
-      jid: 'emilien@contacts.chaumont.me',
+      jid: 'emilien@xmpp.maer.fr',
       password: 'not-logged-or-trimmed ',
       remember: true,
     })

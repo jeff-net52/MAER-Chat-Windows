@@ -2,14 +2,14 @@ import { describe, expect, it } from 'vitest'
 import { buildConverseConfiguration } from '../src/renderer/converse-connector'
 
 const endpoints = {
-  websocketUrl: 'wss://contacts.chaumont.me/xmpp-websocket',
-  boshServiceUrl: 'https://contacts.chaumont.me/http-bind',
+  websocketUrl: 'wss://xmpp.maer.fr/xmpp-websocket',
+  boshServiceUrl: 'https://xmpp.maer.fr/http-bind',
 }
 
 describe('buildConverseConfiguration', () => {
   it('enables Conversations-compatible encrypted messaging and archive sync', () => {
     const config = buildConverseConfiguration({
-      jid: 'alice@contacts.chaumont.me',
+      jid: 'alice@xmpp.maer.fr',
       secret: 'password-secret',
       authKind: 'password',
       endpoints,
@@ -19,7 +19,7 @@ describe('buildConverseConfiguration', () => {
       authentication: 'login',
       auto_login: true,
       auto_reconnect: true,
-      jid: 'alice@contacts.chaumont.me',
+      jid: 'alice@xmpp.maer.fr',
       password: 'password-secret',
       websocket_url: endpoints.websocketUrl,
       bosh_service_url: endpoints.boshServiceUrl,
@@ -37,7 +37,7 @@ describe('buildConverseConfiguration', () => {
   it('marks OAuth sessions so the connector can force X-OAUTH2', () => {
     expect(
       buildConverseConfiguration({
-        jid: 'alice@contacts.chaumont.me',
+        jid: 'alice@xmpp.maer.fr',
         secret: 'opaque-token',
         authKind: 'oauth',
         endpoints,
@@ -46,13 +46,13 @@ describe('buildConverseConfiguration', () => {
   })
 
   it.each([
-    { ...endpoints, websocketUrl: 'ws://contacts.chaumont.me/xmpp-websocket' },
-    { ...endpoints, boshServiceUrl: 'http://contacts.chaumont.me/http-bind' },
+    { ...endpoints, websocketUrl: 'ws://xmpp.maer.fr/xmpp-websocket' },
+    { ...endpoints, boshServiceUrl: 'http://xmpp.maer.fr/http-bind' },
     { ...endpoints, websocketUrl: 'wss://evil.example/ws' },
   ])('rejects insecure or cross-domain transports', (invalidEndpoints) => {
     expect(() =>
       buildConverseConfiguration({
-        jid: 'alice@contacts.chaumont.me',
+        jid: 'alice@xmpp.maer.fr',
         secret: 'secret',
         authKind: 'password',
         endpoints: invalidEndpoints,

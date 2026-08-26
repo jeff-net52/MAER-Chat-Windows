@@ -24,24 +24,26 @@ Commence par lire, dans cet ordre :
 
 ## État vérifié
 
-Le client Windows 1.0.0 est construit. Le dernier commit attendu est `8fada1e` ou un descendant propre. Les vérifications déjà obtenues sont :
+Le client Windows 1.0.1 est construit pour le domaine canonique `xmpp.maer.fr`. Les vérifications déjà obtenues sont :
 
 - TypeScript propre ;
-- 12 fichiers Vitest, 52 tests réussis ;
+- 13 fichiers Vitest, 54 tests réussis ;
 - smoke test Electron réussi ;
 - stockage temporaire Windows Credential Manager testé puis nettoyé ;
 - installateur NSIS réellement installé, lancé, testé et désinstallé ;
-- installateur final : `MAER Chat Windows/Release/MAER-Chat-Setup-1.0.0-x64.exe` ;
-- SHA-256 attendu : `b9450d40abfe5ace1292f626455ab932b372467caeeedc32c8266fa5d8296b27` ;
+- installateur final : `MAER Chat Windows/Release/MAER-Chat-Setup-1.0.1-x64.exe` ;
+- SHA-256 attendu : `dce09d7c7137fe5138e82473a4a151d21cf4d95cf2c70a96e11465a172ce6354` ;
 - l’installateur n’est pas signé Authenticode.
 
-Les endpoints publics suivants renvoyaient HTTP 404 lors du dernier contrôle :
+Le 26 août 2026, le poste de construction n’a obtenu aucune réponse HTTP sur les
+endpoints suivants : la négociation TLS a échoué avant la réponse applicative.
 
-- `https://contacts.chaumont.me/xmpp-websocket`
-- `https://contacts.chaumont.me/http-bind`
-- `https://contacts.chaumont.me/maer-pairing/v1`
+- `https://xmpp.maer.fr/xmpp-websocket`
+- `https://xmpp.maer.fr/http-bind`
+- `https://xmpp.maer.fr/maer-pairing/v1`
 
-Ne considère donc pas la connexion XMPP ou le QR comme validés tant que les endpoints ne sont pas déployés et testés.
+Ne considère donc pas la connexion XMPP ou le QR comme validés tant que le TLS,
+les endpoints et les scénarios authentifiés ne sont pas testés avec succès.
 
 ## Mission restante, par ordre
 
@@ -50,7 +52,7 @@ Ne considère donc pas la connexion XMPP ou le QR comme validés tant que les en
 Dans `MAER Chat Windows/` :
 
 ```bash
-npm install
+npm ci
 npm run typecheck
 npm test
 npm run build

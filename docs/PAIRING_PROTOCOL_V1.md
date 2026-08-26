@@ -6,7 +6,7 @@ Associer un client Windows à un compte MAER déjà connecté sur Android **sans
 
 Namespace XMPP : `urn:maer:pairing:1`  
 URI QR : `maerchat://pair?...`  
-API HTTPS : `https://contacts.chaumont.me/maer-pairing/v1`
+API HTTPS : `https://xmpp.maer.fr/maer-pairing/v1`
 
 ## 1. Création par Windows
 
@@ -45,7 +45,7 @@ Réponse :
 Le QR ne contient que :
 
 ```text
-maerchat://pair?v=1&host=contacts.chaumont.me&sid=<session_id>&code=<6 chiffres>
+maerchat://pair?v=1&host=xmpp.maer.fr&sid=<session_id>&code=<6 chiffres>
 ```
 
 Le QR ne contient ni mot de passe, ni jeton OAuth, ni nonce de consultation.
@@ -62,7 +62,7 @@ L’application présente avant envoi :
 Elle envoie au domaine de son compte :
 
 ```xml
-<iq type='set' to='contacts.chaumont.me' id='pair-…'>
+<iq type='set' to='xmpp.maer.fr' id='pair-…'>
   <approve xmlns='urn:maer:pairing:1'
            session='…'
            code='123456'/>
@@ -114,7 +114,7 @@ ou, après approbation :
 ```json
 {
   "status": "approved",
-  "jid": "utilisateur@contacts.chaumont.me",
+  "jid": "utilisateur@xmpp.maer.fr",
   "access_token": "<secret>",
   "token_expires_at": "…",
   "device_id": "<opaque>"
@@ -128,7 +128,7 @@ Le jeton ne peut être obtenu que par le PC possédant la clé privée éphémè
 Liste :
 
 ```xml
-<iq type='get' to='contacts.chaumont.me'>
+<iq type='get' to='xmpp.maer.fr'>
   <devices xmlns='urn:maer:pairing:1'/>
 </iq>
 ```
@@ -136,7 +136,7 @@ Liste :
 Révocation :
 
 ```xml
-<iq type='set' to='contacts.chaumont.me'>
+<iq type='set' to='xmpp.maer.fr'>
   <revoke xmlns='urn:maer:pairing:1' device-id='…'/>
 </iq>
 ```

@@ -22,13 +22,13 @@ describe('onboarding screens', () => {
   it('offers remembered accounts without exposing stored secrets', () => {
     document.body.innerHTML = renderWelcomeScreen([
       'alice@example.org',
-      'bob@contacts.chaumont.me',
+      'bob@xmpp.maer.fr',
     ])
 
     const accounts = [...document.querySelectorAll('[data-account]')].map((item) =>
       item.getAttribute('data-account'),
     )
-    expect(accounts).toEqual(['alice@example.org', 'bob@contacts.chaumont.me'])
+    expect(accounts).toEqual(['alice@example.org', 'bob@xmpp.maer.fr'])
     expect(document.body.textContent).not.toMatch(/password|mot de passe enregistré/i)
   })
 
@@ -37,6 +37,9 @@ describe('onboarding screens', () => {
 
     const password = document.querySelector<HTMLInputElement>('input[type="password"]')
     expect(password?.autocomplete).toBe('current-password')
+    expect(document.querySelector('[data-role="domain-suffix"]')?.textContent).toBe(
+      '@xmpp.maer.fr',
+    )
     expect(document.querySelector('label[for="advanced-jid"]')).not.toBeNull()
     expect(document.querySelector('button[type="submit"]')?.textContent).toMatch(/connecter/i)
   })

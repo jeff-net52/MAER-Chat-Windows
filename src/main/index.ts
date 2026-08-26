@@ -11,18 +11,14 @@ import { hostname } from 'node:os'
 import { join } from 'node:path'
 import { createApprovalUri } from '../shared/pairing-protocol'
 import { IPC } from '../shared/ipc-channels'
+import {
+  MAER_SERVICE_ENDPOINTS,
+  MAER_XMPP_DOMAIN,
+} from '../shared/service-config'
 import { CredentialStore, WindowsCredentialBackend } from './credential-store'
 import { createDesktopHandlers } from './ipc-handlers'
 import { PairingApiClient } from './pairing-api'
 import { PairingSessionManager } from './pairing-session-manager'
-
-const DOMAIN = 'contacts.chaumont.me'
-const ENDPOINTS = {
-  domain: DOMAIN,
-  websocketUrl: `wss://${DOMAIN}/xmpp-websocket`,
-  boshServiceUrl: `https://${DOMAIN}/http-bind`,
-  pairingApiBaseUrl: `https://${DOMAIN}/maer-pair/v1`,
-}
 
 let mainWindow: BrowserWindow | undefined
 let tray: Tray | undefined
@@ -36,13 +32,13 @@ function iconPath(): string {
 
 function pairingManager(): PairingSessionManager {
   return new PairingSessionManager((signer) => {
-    const api = new PairingApiClient(ENDPOINTS.pairingApiBaseUrl)
+    const api = new PairingApiClient(MAER_SERVICE_ENDPOINTS.pairingApiBaseUrl)
     return {
       async createSession(deviceName) {
         const session = await api.createSession(signer, deviceName, app.getVersion())
         return {
           session,
-          approvalUri: createApprovalUri(session, DOMAIN),
+          approvalUri: createApprovalUri(session, MAER_XMPP_DOMAIN),
         }
       },
       poll(session) {
@@ -60,7 +56,7 @@ function registerIpc(): PairingSessionManager {
   const handlers = createDesktopHandlers({
     appVersion: app.getVersion(),
     deviceName: hostname().slice(0, 80) || 'PC Windows',
-    endpoints: ENDPOINTS,
+    endpoints: MAER_SERVICE_ENDPOINTS,
     credentials: new CredentialStore(new WindowsCredentialBackend()),
     pairing,
   })

@@ -30,7 +30,7 @@ describe('PairingApiClient', () => {
       )
     })
     const client = new PairingApiClient(
-      'https://contacts.chaumont.me/maer-pair/v1',
+      'https://xmpp.maer.fr/maer-pairing/v1',
       fetcher,
     )
 
@@ -48,7 +48,7 @@ describe('PairingApiClient', () => {
       return new Response(
         JSON.stringify({
           status: 'approved',
-          jid: 'emilien@contacts.chaumont.me',
+          jid: 'emilien@xmpp.maer.fr',
           access_token: 'opaque-oauth-token',
           token_expires_at: '2027-02-20T19:12:00.000Z',
           device_id: 'dev_2o9R3x8T1q4W',
@@ -57,7 +57,7 @@ describe('PairingApiClient', () => {
       )
     })
     const client = new PairingApiClient(
-      'https://contacts.chaumont.me/maer-pair/v1',
+      'https://xmpp.maer.fr/maer-pairing/v1',
       fetcher,
       () => new Date('2026-08-24T19:10:30.000Z'),
     )
@@ -70,7 +70,7 @@ describe('PairingApiClient', () => {
 
     expect(result).toEqual({
       status: 'approved',
-      jid: 'emilien@contacts.chaumont.me',
+      jid: 'emilien@xmpp.maer.fr',
       accessToken: 'opaque-oauth-token',
       tokenExpiresAt: '2027-02-20T19:12:00.000Z',
       deviceId: 'dev_2o9R3x8T1q4W',
@@ -91,7 +91,7 @@ describe('PairingApiClient', () => {
       ),
     )
     const client = new PairingApiClient(
-      'https://contacts.chaumont.me/maer-pair/v1',
+      'https://xmpp.maer.fr/maer-pairing/v1',
       fetcher,
     )
 
@@ -119,7 +119,7 @@ describe('PairingApiClient', () => {
       })
     })
     const client = new PairingApiClient(
-      'https://contacts.chaumont.me/maer-pair/v1',
+      'https://xmpp.maer.fr/maer-pairing/v1',
       fetcher,
       () => new Date('2026-08-24T19:10:30.000Z'),
     )
@@ -133,7 +133,7 @@ describe('PairingApiClient', () => {
 
   it('fails closed on a non-HTTPS endpoint', () => {
     expect(
-      () => new PairingApiClient('http://contacts.chaumont.me/maer-pair/v1'),
+      () => new PairingApiClient('http://xmpp.maer.fr/maer-pairing/v1'),
     ).toThrow(/HTTPS/i)
   })
 })

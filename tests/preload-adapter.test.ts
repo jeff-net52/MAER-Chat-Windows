@@ -11,18 +11,18 @@ describe('preload bridge adapters', () => {
       mapBootstrap({
         version: '1.0.0',
         deviceName: 'PC Atelier',
-        accounts: ['alice@contacts.chaumont.me'],
+        accounts: ['alice@xmpp.maer.fr'],
         endpoints: {
-          domain: 'contacts.chaumont.me',
-          websocketUrl: 'wss://contacts.chaumont.me/xmpp-websocket',
-          boshServiceUrl: 'https://contacts.chaumont.me/http-bind',
-          pairingApiBaseUrl: 'https://contacts.chaumont.me/maer-pair/v1',
+          domain: 'xmpp.maer.fr',
+          websocketUrl: 'wss://xmpp.maer.fr/xmpp-websocket',
+          boshServiceUrl: 'https://xmpp.maer.fr/http-bind',
+          pairingApiBaseUrl: 'https://xmpp.maer.fr/maer-pairing/v1',
         },
       }),
     ).toMatchObject({
-      domain: 'contacts.chaumont.me',
-      websocketUrl: 'wss://contacts.chaumont.me/xmpp-websocket',
-      boshServiceUrl: 'https://contacts.chaumont.me/http-bind',
+      domain: 'xmpp.maer.fr',
+      websocketUrl: 'wss://xmpp.maer.fr/xmpp-websocket',
+      boshServiceUrl: 'https://xmpp.maer.fr/http-bind',
       demo: false,
     })
   })
@@ -30,7 +30,7 @@ describe('preload bridge adapters', () => {
   it('maps a prepared password without adding it to bootstrap state', () => {
     expect(
       mapPreparedPasswordLogin({
-        jid: 'alice@contacts.chaumont.me',
+        jid: 'alice@xmpp.maer.fr',
         credential: {
           version: 1,
           authKind: 'password',
@@ -39,7 +39,7 @@ describe('preload bridge adapters', () => {
         remember: true,
       }),
     ).toEqual({
-      jid: 'alice@contacts.chaumont.me',
+      jid: 'alice@xmpp.maer.fr',
       password: 'temporary-secret',
       remember: true,
     })
@@ -49,7 +49,7 @@ describe('preload bridge adapters', () => {
     expect(
       mapPairingPoll({
         status: 'approved',
-        jid: 'alice@contacts.chaumont.me',
+        jid: 'alice@xmpp.maer.fr',
         credential: {
           version: 1,
           authKind: 'oauth',
@@ -60,7 +60,7 @@ describe('preload bridge adapters', () => {
       }),
     ).toEqual({
       status: 'approved',
-      jid: 'alice@contacts.chaumont.me',
+      jid: 'alice@xmpp.maer.fr',
       accessToken: 'opaque-token',
       deviceId: 'device-42',
       tokenExpiresAt: '2026-09-24T22:12:00.000Z',

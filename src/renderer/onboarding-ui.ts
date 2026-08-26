@@ -1,3 +1,5 @@
+import { MAER_XMPP_DOMAIN } from '../shared/service-config'
+
 export interface PairingScreenModel {
   qrDataUrl: string
   verificationCode: string
@@ -64,7 +66,7 @@ export function renderCredentialsScreen(): string {
         <label for="account-id">Identifiant</label>
         <div class="domain-field">
           <input id="account-id" name="identifier" type="text" required autocomplete="username" spellcheck="false" placeholder="votre.identifiant" />
-          <span class="domain-suffix" data-role="domain-suffix">@contacts.chaumont.me</span>
+          <span class="domain-suffix" data-role="domain-suffix">@${MAER_XMPP_DOMAIN}</span>
         </div>
         <label for="account-password">Mot de passe</label>
         <div class="password-field">

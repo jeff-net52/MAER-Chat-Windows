@@ -10,9 +10,9 @@ const bootstrap = {
   version: '1.0.0',
   deviceName: 'PC Atelier',
   accounts: [] as string[],
-  domain: 'contacts.chaumont.me',
-  websocketUrl: 'wss://contacts.chaumont.me/xmpp-websocket',
-  boshServiceUrl: 'https://contacts.chaumont.me/http-bind',
+  domain: 'xmpp.maer.fr',
+  websocketUrl: 'wss://xmpp.maer.fr/xmpp-websocket',
+  boshServiceUrl: 'https://xmpp.maer.fr/http-bind',
   demo: false,
 }
 
@@ -20,14 +20,14 @@ function makeBridge(overrides: Partial<DesktopBridge> = {}): DesktopBridge {
   return {
     getBootstrap: vi.fn(async () => bootstrap),
     preparePasswordLogin: vi.fn(async () => ({
-      jid: 'alice@contacts.chaumont.me',
+      jid: 'alice@xmpp.maer.fr',
       password: 'secret-password',
       remember: true,
     })),
     beginPairing: vi.fn(async () => ({
       sessionId: 'S1M4g7D8u2kL9pQ3xY6w',
       approvalUri:
-        'maerchat://pair?code=482913&host=contacts.chaumont.me&sid=S1M4g7D8u2kL9pQ3xY6w&v=1',
+        'maerchat://pair?code=482913&host=xmpp.maer.fr&sid=S1M4g7D8u2kL9pQ3xY6w&v=1',
       verificationCode: '482913',
       expiresAt: '2026-08-24T22:12:00.000Z',
     })),
@@ -87,7 +87,7 @@ describe('OnboardingController', () => {
     await flush()
 
     expect(chat.connect).toHaveBeenCalledWith({
-      jid: 'alice@contacts.chaumont.me',
+      jid: 'alice@xmpp.maer.fr',
       secret: 'secret-password',
       authKind: 'password',
       endpoints: {
@@ -96,7 +96,7 @@ describe('OnboardingController', () => {
       },
     })
     expect(bridge.saveValidatedCredential).toHaveBeenCalledWith({
-      jid: 'alice@contacts.chaumont.me',
+      jid: 'alice@xmpp.maer.fr',
       remember: true,
       credential: {
         version: 1,
@@ -114,7 +114,7 @@ describe('OnboardingController', () => {
     const bridge = makeBridge({
       pollPairing: vi.fn(async () => ({
         status: 'approved' as const,
-        jid: 'alice@contacts.chaumont.me',
+        jid: 'alice@xmpp.maer.fr',
         accessToken: 'opaque-oauth-token',
         tokenExpiresAt: '2027-02-20T19:12:00.000Z',
         deviceId: 'dev_2o9R3x8T1q4W',
@@ -140,7 +140,7 @@ describe('OnboardingController', () => {
     await flush()
 
     expect(chat.connect).toHaveBeenCalledWith({
-      jid: 'alice@contacts.chaumont.me',
+      jid: 'alice@xmpp.maer.fr',
       secret: 'opaque-oauth-token',
       authKind: 'oauth',
       endpoints: {
@@ -149,7 +149,7 @@ describe('OnboardingController', () => {
       },
     })
     expect(bridge.saveValidatedCredential).toHaveBeenCalledWith({
-      jid: 'alice@contacts.chaumont.me',
+      jid: 'alice@xmpp.maer.fr',
       remember: true,
       credential: {
         version: 1,

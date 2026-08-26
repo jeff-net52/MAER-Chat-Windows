@@ -16,10 +16,10 @@ const response: PairingSessionResponse = {
 
 describe('pairing protocol', () => {
   it('creates a password-free QR URI bound to the MAER host', () => {
-    const uri = createApprovalUri(response, 'contacts.chaumont.me')
+    const uri = createApprovalUri(response, 'xmpp.maer.fr')
 
     expect(uri).toBe(
-      'maerchat://pair?code=482913&host=contacts.chaumont.me&sid=S1M4g7D8u2kL9pQ3xY6w&v=1',
+      'maerchat://pair?code=482913&host=xmpp.maer.fr&sid=S1M4g7D8u2kL9pQ3xY6w&v=1',
     )
     expect(uri).not.toContain('password')
     expect(uri).not.toContain('token')

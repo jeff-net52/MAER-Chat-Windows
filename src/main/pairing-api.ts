@@ -1,4 +1,5 @@
 import { normalizeLoginJid } from '../shared/jid'
+import { MAER_XMPP_DOMAIN } from '../shared/service-config'
 import {
   createCancelProofPayload,
   createPollProofPayload,
@@ -125,7 +126,7 @@ export class PairingApiClient {
     const jid = normalizeLoginJid(
       requiredString(response.jid, 'jid'),
       true,
-      'contacts.chaumont.me',
+      MAER_XMPP_DOMAIN,
     )
     return {
       status,
