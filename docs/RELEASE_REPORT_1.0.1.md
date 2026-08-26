@@ -9,7 +9,7 @@ Date de construction : 26 août 2026.
 - BOSH : `https://xmpp.maer.fr/http-bind` ;
 - association : `https://xmpp.maer.fr/maer-pairing/v1` ;
 - suffixe de connexion, validation des JID, Gestionnaire d’identifiants,
-  QR, tests et documentation alignés ;
+  génération/polling QR côté Windows, tests et documentation alignés ;
 - CSP du renderer limitée à `xmpp.maer.fr` et à ses sous-domaines ;
 - anciens comptes `@contacts.chaumont.me` masqués dans la liste sans supprimer
   leurs secrets du Gestionnaire d’identifiants Windows.
@@ -41,11 +41,17 @@ Date de construction : 26 août 2026.
 
 Les sondes HTTPS du 26 août 2026 ont échoué pendant la négociation TLS avant
 toute réponse HTTP sur host-meta, WebSocket, BOSH et les deux chemins
-d’association sondés. Aucun contournement de certificat n’a été utilisé.
+d’association sondés. Le serveur présente `CN=chaumont.me`, qui ne couvre pas
+`xmpp.maer.fr` ; aucun contournement de certificat n’a été utilisé.
 
 La connexion XMPP, la messagerie, OMEMO et le scénario QR complet ne sont donc
 pas déclarés validés. Ils nécessitent un certificat TLS accepté, les endpoints
 serveur déployés et des comptes de test dédiés.
+
+En outre, l’association QR n’est pas encore implémentée dans le client Android
+ni dans le serveur ejabberd. La présence du parcours et de ses tests unitaires
+côté Windows ne signifie donc pas que cette fonction est livrée de bout en
+bout.
 
 ## Historique
 

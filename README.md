@@ -5,17 +5,24 @@ Client de bureau Windows 10/11 x64 pour le service XMPP MAER (`xmpp.maer.fr`). L
 ## État du projet
 
 - Client Electron/TypeScript construit localement.
-- Interface française claire/sombre, connexion QR ou identifiant/mot de passe.
+- Interface française claire/sombre et connexion par identifiant/mot de passe.
+- Parcours QR préparé côté Windows, mais non opérationnel tant que les
+  composants Android et serveur décrits dans `docs/PAIRING_PROTOCOL_V1.md` ne
+  sont pas implémentés et déployés.
 - Moteur XMPP Converse.js 14 : conversations privées et groupes, MAM, HTTP Upload, réponses, corrections, réactions, retraits, accusés, notifications et OMEMO.
 - Secrets enregistrés dans le Gestionnaire d’identifiants Windows (`@napi-rs/keyring`).
 - 54 tests automatisés actuellement réussis.
 
-Deux prérequis serveur restent nécessaires avant les essais réels :
+La connexion classique nécessite encore deux prérequis d’exploitation avant
+les essais réels :
 
-1. exposer XMPP-over-WebSocket et BOSH en TLS ;
-2. déployer l’extension d’association décrite dans `docs/PAIRING_PROTOCOL_V1.md`.
+1. exposer XMPP-over-WebSocket ou BOSH derrière un certificat TLS valide ;
+2. déclarer réellement `xmpp.maer.fr` comme virtual host et tester un compte.
 
-Le client Android n’est pas modifié dans ce dépôt. Les instructions destinées à Codex seront livrées dans `docs/CODEX_ANDROID_LINKED_DEVICES.md`.
+L’association QR forme un chantier distinct : extension ejabberd, prise en
+charge Android, tests de sécurité et déploiement. Les fichiers
+`docs/CODEX_ANDROID_LINKED_DEVICES.md` et `docs/CODEX_PROJECT_HANDOFF.md` sont
+des plans de travail conservés pour référence, pas des fonctionnalités livrées.
 
 ## Développement
 

@@ -1,5 +1,9 @@
 # Mission Codex — « Appareils liés » dans MAER Chat Android
 
+> **Statut :** spécification de développement future. Aucun des composants
+> décrits ci-dessous n’est présent dans le client Android récupéré ; ce document
+> ne constitue pas une preuve d’implémentation ou de validation.
+
 ## Portée stricte
 
 Travaille uniquement dans le dépôt Android `MaerChat`. N’édite ni le client Windows ni ejabberd. Crée une branche `feature/linked-devices-v1`. Ne change pas le package `fr.maer.chat`, le mécanisme de connexion existant, OMEMO, ni les traitements QR XMPP actuels.

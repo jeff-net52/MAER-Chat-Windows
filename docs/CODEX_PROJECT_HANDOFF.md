@@ -1,5 +1,9 @@
 # Prompt de reprise pour Codex
 
+> **Statut :** archive de passation et plan de travail. Les consignes incluses
+> ci-dessous décrivent des tâches restantes ; elles ne prouvent pas que les
+> fonctions Android, serveur ou réseau ont été réalisées.
+
 Copier le bloc ci-dessous dans Codex après avoir extrait l’archive complète.
 
 ---

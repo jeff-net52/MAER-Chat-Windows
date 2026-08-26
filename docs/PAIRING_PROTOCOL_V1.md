@@ -1,5 +1,14 @@
 # Protocole d’association MAER Chat — version 1
 
+> **Statut au 26 août 2026 :** contrat de conception non implémenté sur Android
+> ni sur ejabberd. Le client Windows prépare le QR et le polling, mais aucun
+> scénario de bout en bout n’est opérationnel ou validé.
+
+> **Point à résoudre avant développement :** le nom du PC est enregistré lors
+> de la création de session, mais absent du QR et d’une réponse consultable par
+> Android. Le protocole doit définir une prélecture XMPP authentifiée de la
+> session, ou renoncer à afficher ce nom avant l’approbation.
+
 ## Objectif
 
 Associer un client Windows à un compte MAER déjà connecté sur Android **sans placer ni transmettre le mot de passe dans le QR code**. L’application Android authentifie l’approbation par une IQ XMPP envoyée sur sa session existante. Le serveur émet un jeton OAuth limité à `sasl_auth`, révocable par appareil.
