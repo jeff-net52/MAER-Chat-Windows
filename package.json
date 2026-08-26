@@ -23,6 +23,8 @@
   "dependencies": {
     "@napi-rs/keyring": "1.3.0",
     "converse.js": "14.0.0",
+    "hash-wasm": "4.12.0",
+    "kdbxweb": "2.1.1",
     "qrcode": "1.5.4"
   },
   "devDependencies": {
@@ -49,7 +51,8 @@
       "out/**/*",
       "package.json",
       "LICENSE",
-      "THIRD_PARTY_NOTICES.md"
+      "THIRD_PARTY_NOTICES.md",
+      "THIRD_PARTY_LICENSES/**/*"
     ],
     "asar": true,
     "asarUnpack": [
@@ -74,6 +77,11 @@
       "createStartMenuShortcut": true,
       "shortcutName": "MAER Chat",
       "deleteAppDataOnUninstall": false
+    }
+  },
+  "overrides": {
+    "kdbxweb": {
+      "@xmldom/xmldom": "0.8.15"
     }
   }
 }
