@@ -11,6 +11,7 @@ import {
   createPasswordVaultDatabase,
   loadPasswordVaultDatabase,
   savePasswordVaultDatabase,
+  wipePasswordVaultDatabase,
 } from '../src/plugins/password-vault/main/kdbx-vault'
 
 const SECRET = new Uint8Array(32).fill(0x31)
@@ -103,6 +104,39 @@ describe('Password Vault KDBX 4.1 core', () => {
   it('rejects non-32-byte vault secrets before KDBX processing', async () => {
     await expect(createPasswordVaultDatabase(new Uint8Array(31))).rejects.toThrow(/32 octets/i)
   })
+
+  it('rejects password fields that are not protected in memory', async () => {
+    const database = await createPasswordVaultDatabase(SECRET)
+    const entry = database.createEntry(database.getDefaultGroup())
+    entry.fields.set('Password', 'plaintext')
+
+    await expect(savePasswordVaultDatabase(database)).rejects.toThrow(/protégé en mémoire/i)
+  })
+
+  it('zeroes retained protected values on best-effort disposal', async () => {
+    const database = await loadPasswordVaultDatabase(serialized.slice(0), SECRET)
+    const credential = database.credentials.passwordHash
+    const entry = [...database.getDefaultGroup().allEntries()].find(
+      (candidate) => candidate.fields.get('Title') === 'Compte de test',
+    )
+    const password = entry?.fields.get('Password')
+    const streamKey = database.header.protectedStreamKey
+    expect(credential).toBeInstanceOf(ProtectedValue)
+    expect(password).toBeInstanceOf(ProtectedValue)
+    expect(streamKey).toBeInstanceOf(ArrayBuffer)
+
+    wipePasswordVaultDatabase(database)
+
+    expect(credential?.value).toEqual(new Uint8Array(credential?.value.byteLength ?? 0))
+    expect(credential?.salt).toEqual(new Uint8Array(credential?.salt.byteLength ?? 0))
+    if (password instanceof ProtectedValue) {
+      expect(password.value).toEqual(new Uint8Array(password.value.byteLength))
+      expect(password.salt).toEqual(new Uint8Array(password.salt.byteLength))
+    }
+    if (streamKey) {
+      expect(new Uint8Array(streamKey)).toEqual(new Uint8Array(streamKey.byteLength))
+    }
+  }, 30_000)
 
   it('rejects oversized input before parsing', async () => {
     const oversized = new ArrayBuffer(16 * 1024 * 1024 + 1)

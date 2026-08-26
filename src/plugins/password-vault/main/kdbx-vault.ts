@@ -99,6 +99,10 @@ function activeEntryCount(database: Kdbx): number {
   return count
 }
 
+export function passwordVaultEntryCount(database: Kdbx): number {
+  return activeEntryCount(database)
+}
+
 export function assertPasswordVaultDatabase(database: Kdbx): void {
   if (
     database.versionMajor !== KDBX_VERSION_MAJOR ||
@@ -113,14 +117,61 @@ export function assertPasswordVaultDatabase(database: Kdbx): void {
   if (database.binaries.getAll().length !== 0) {
     throw new Error('Les pièces jointes ne sont pas prises en charge dans ce coffre.')
   }
+  if (database.meta.memoryProtection.password !== true) {
+    throw new Error('La protection en mémoire des mots de passe du coffre est désactivée.')
+  }
   for (const entry of database.getDefaultGroup().allEntries()) {
     if (entry.binaries.size !== 0 || entry.history.some((item) => item.binaries.size !== 0)) {
       throw new Error('Les pièces jointes ne sont pas prises en charge dans ce coffre.')
+    }
+    for (const candidate of [entry, ...entry.history]) {
+      const password = candidate.fields.get('Password')
+      if (password !== undefined && !(password instanceof ProtectedValue)) {
+        throw new Error('Un mot de passe du coffre n’est pas protégé en mémoire.')
+      }
     }
   }
   if (activeEntryCount(database) > PASSWORD_VAULT_ENTRY_LIMIT) {
     throw new Error("Le coffre contient trop d’entrées.")
   }
+}
+
+function wipeProtectedValue(value: ProtectedValue | undefined): void {
+  if (!value) return
+  value.value.fill(0)
+  value.salt.fill(0)
+}
+
+function wipeBuffer(value: ArrayBuffer | undefined): void {
+  if (value) new Uint8Array(value).fill(0)
+}
+
+export function wipePasswordVaultDatabase(database: Kdbx): void {
+  const bestEffort = (operation: () => void): void => {
+    try {
+      operation()
+    } catch {
+      // JavaScript cannot guarantee erasure; continue every available wipe pass.
+    }
+  }
+  bestEffort(() => wipeProtectedValue(database.credentials.passwordHash))
+  bestEffort(() => wipeProtectedValue(database.credentials.keyFileHash))
+  bestEffort(() => {
+    for (const entry of database.getDefaultGroup().allEntries()) {
+      for (const candidate of [entry, ...entry.history]) {
+        for (const value of candidate.fields.values()) {
+          if (value instanceof ProtectedValue) {
+            bestEffort(() => wipeProtectedValue(value))
+          }
+        }
+      }
+    }
+  })
+  bestEffort(() => wipeBuffer(database.header.masterSeed))
+  bestEffort(() => wipeBuffer(database.header.transformSeed))
+  bestEffort(() => wipeBuffer(database.header.encryptionIV))
+  bestEffort(() => wipeBuffer(database.header.protectedStreamKey))
+  bestEffort(() => wipeBuffer(database.header.streamStartBytes))
 }
 
 function configurePasswordVaultDatabase(database: Kdbx): void {
@@ -146,9 +197,14 @@ function configurePasswordVaultDatabase(database: Kdbx): void {
 export async function createPasswordVaultDatabase(secret: Uint8Array): Promise<Kdbx> {
   installPasswordVaultArgon2()
   const database = Kdbx.create(await credentialsFromSecret(secret), 'MAER Password Vault')
-  configurePasswordVaultDatabase(database)
-  assertPasswordVaultDatabase(database)
-  return database
+  try {
+    configurePasswordVaultDatabase(database)
+    assertPasswordVaultDatabase(database)
+    return database
+  } catch (error) {
+    wipePasswordVaultDatabase(database)
+    throw error
+  }
 }
 
 export async function savePasswordVaultDatabase(database: Kdbx): Promise<ArrayBuffer> {
@@ -171,6 +227,11 @@ export async function loadPasswordVaultDatabase(
   }
   installPasswordVaultArgon2()
   const database = await Kdbx.load(data, await credentialsFromSecret(secret))
-  assertPasswordVaultDatabase(database)
-  return database
+  try {
+    assertPasswordVaultDatabase(database)
+    return database
+  } catch (error) {
+    wipePasswordVaultDatabase(database)
+    throw error
+  }
 }
