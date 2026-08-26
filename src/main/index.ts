@@ -9,6 +9,9 @@ import {
 } from 'electron'
 import { hostname } from 'node:os'
 import { join } from 'node:path'
+import { pathToFileURL } from 'node:url'
+import { MainPluginHost } from '../plugins/core/main/plugin-host'
+import { FIRST_PARTY_MAIN_PLUGINS } from '../plugins/main-registry'
 import { createApprovalUri } from '../shared/pairing-protocol'
 import { IPC } from '../shared/ipc-channels'
 import {
@@ -19,6 +22,8 @@ import { CredentialStore, WindowsCredentialBackend } from './credential-store'
 import { createDesktopHandlers } from './ipc-handlers'
 import { PairingApiClient } from './pairing-api'
 import { PairingSessionManager } from './pairing-session-manager'
+import { installDenyByDefaultPermissionPolicy } from './permission-policy'
+import { TrustedIpcMain, TrustedRendererGuard } from './trusted-ipc'
 
 let mainWindow: BrowserWindow | undefined
 let tray: Tray | undefined
@@ -34,6 +39,13 @@ function iconPath(): string {
   return app.isPackaged
     ? join(process.resourcesPath, 'assets', 'icon.png')
     : join(__dirname, '../../assets/icon.png')
+}
+
+function rendererEntryUrl(): string {
+  if (process.env.ELECTRON_RENDERER_URL) {
+    return new URL(process.env.ELECTRON_RENDERER_URL).href
+  }
+  return pathToFileURL(join(__dirname, '../renderer/index.html')).href
 }
 
 function pairingManager(): PairingSessionManager {
@@ -57,8 +69,15 @@ function pairingManager(): PairingSessionManager {
   })
 }
 
-function registerIpc(): PairingSessionManager {
+interface MainServices {
+  pairing: PairingSessionManager
+  plugins: MainPluginHost
+  ipc: TrustedIpcMain
+}
+
+function registerIpc(guard: TrustedRendererGuard): MainServices {
   const pairing = pairingManager()
+  const ipc = new TrustedIpcMain(ipcMain, guard)
   const handlers = createDesktopHandlers({
     appVersion: app.getVersion(),
     deviceName: hostname().slice(0, 80) || 'PC Windows',
@@ -67,30 +86,29 @@ function registerIpc(): PairingSessionManager {
     pairing,
   })
 
-  ipcMain.handle(IPC.bootstrap, () => handlers.bootstrap())
-  ipcMain.handle(IPC.preparePasswordLogin, (_event, input: unknown) =>
-    handlers.preparePasswordLogin(input),
-  )
-  ipcMain.handle(IPC.loadCredential, (_event, input: unknown) =>
-    handlers.loadCredential(input),
-  )
-  ipcMain.handle(IPC.saveValidatedCredential, (_event, input: unknown) =>
+  ipc.handle(IPC.bootstrap, () => handlers.bootstrap())
+  ipc.handle(IPC.preparePasswordLogin, (input: unknown) => handlers.preparePasswordLogin(input))
+  ipc.handle(IPC.loadCredential, (input: unknown) => handlers.loadCredential(input))
+  ipc.handle(IPC.saveValidatedCredential, (input: unknown) =>
     handlers.saveValidatedCredential(input),
   )
-  ipcMain.handle(IPC.forgetCredential, (_event, input: unknown) =>
-    handlers.forgetCredential(input),
-  )
-  ipcMain.handle(IPC.beginPairing, () => handlers.beginPairing())
-  ipcMain.handle(IPC.pollPairing, (_event, input: unknown) =>
-    handlers.pollPairing(input),
-  )
-  ipcMain.handle(IPC.cancelPairing, (_event, input: unknown) =>
-    handlers.cancelPairing(input),
-  )
-  return pairing
+  ipc.handle(IPC.forgetCredential, (input: unknown) => handlers.forgetCredential(input))
+  ipc.handle(IPC.beginPairing, () => handlers.beginPairing())
+  ipc.handle(IPC.pollPairing, (input: unknown) => handlers.pollPairing(input))
+  ipc.handle(IPC.cancelPairing, (input: unknown) => handlers.cancelPairing(input))
+
+  const plugins = new MainPluginHost({
+    appVersion: app.getVersion(),
+    plugins: FIRST_PARTY_MAIN_PLUGINS,
+    createIpcScope: (pluginId) => ipc.createPluginScope(pluginId),
+    onFailure: (failure) => {
+      console.error(`[plugin:${failure.pluginId}] ${failure.phase}`)
+    },
+  })
+  return { pairing, plugins, ipc }
 }
 
-function createWindow(): BrowserWindow {
+function createWindow(expectedRendererUrl: string, guard: TrustedRendererGuard): BrowserWindow {
   const window = new BrowserWindow({
     title: 'MAER Chat',
     width: 1280,
@@ -110,6 +128,8 @@ function createWindow(): BrowserWindow {
       spellcheck: true,
     },
   })
+
+  installDenyByDefaultPermissionPolicy(window.webContents.session, guard)
 
   window.webContents.setWindowOpenHandler(({ url }) => {
     try {
@@ -137,7 +157,7 @@ function createWindow(): BrowserWindow {
   })
 
   if (process.env.ELECTRON_RENDERER_URL) {
-    void window.loadURL(process.env.ELECTRON_RENDERER_URL)
+    void window.loadURL(expectedRendererUrl)
   } else {
     void window.loadFile(join(__dirname, '../renderer/index.html'))
   }
@@ -186,20 +206,28 @@ if (!gotLock) {
     mainWindow.focus()
   })
 
-  void app.whenReady().then(() => {
+  void app.whenReady().then(async () => {
     app.setAppUserModelId('fr.maer.chat.desktop')
     Menu.setApplicationMenu(null)
-    const pairing = registerIpc()
-    mainWindow = createWindow()
+    const expectedRendererUrl = rendererEntryUrl()
+    const guard = new TrustedRendererGuard({
+      expectedUrl: expectedRendererUrl,
+      getWebContents: () => mainWindow?.webContents,
+    })
+    const services = registerIpc(guard)
+    await services.plugins.activateAll()
+    mainWindow = createWindow(expectedRendererUrl, guard)
     tray = createTray()
 
     app.on('before-quit', () => {
       quitting = true
-      void pairing.cancelAll()
+      void services.pairing.cancelAll()
+      void services.plugins.deactivateAll()
+      services.ipc.dispose()
     })
     app.on('activate', () => {
       if (!mainWindow || mainWindow.isDestroyed()) {
-        mainWindow = createWindow()
+        mainWindow = createWindow(expectedRendererUrl, guard)
       } else {
         mainWindow.show()
       }

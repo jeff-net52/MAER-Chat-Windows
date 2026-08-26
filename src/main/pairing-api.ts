@@ -1,4 +1,4 @@
-import { normalizeLoginJid } from '../shared/jid'
+import { normalizeAccountJid } from '../shared/jid'
 import { MAER_ACCOUNT_DOMAIN } from '../shared/service-config'
 import {
   createCancelProofPayload,
@@ -123,9 +123,8 @@ export class PairingApiClient {
       throw new Error('État d’association inconnu')
     }
 
-    const jid = normalizeLoginJid(
+    const jid = normalizeAccountJid(
       requiredString(response.jid, 'jid'),
-      true,
       MAER_ACCOUNT_DOMAIN,
     )
     return {

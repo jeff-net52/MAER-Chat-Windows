@@ -7,6 +7,7 @@ import {
   type CallMode,
   type StartedCall,
 } from './call-service'
+import type { RendererPluginRegistry } from '../plugins/core/renderer/plugin-registry'
 
 export type ThemePreference = 'system' | 'light' | 'dark'
 
@@ -20,6 +21,7 @@ export interface DesktopShellOptions {
   accountJid: string
   onLogout(): Promise<void>
   applyChatPreferences(preferences: DesktopPreferences): void
+  pluginRegistry?: RendererPluginRegistry
 }
 
 const PREFERENCES_KEY = 'maer.desktop.preferences.v1'
@@ -36,6 +38,8 @@ let conversationSidebarObserver: MutationObserver | undefined
 let conversationSidebarSyncPending = false
 let conversationSearch = ''
 let conversationFilter: 'all' | 'unread' = 'all'
+let pluginPanelCleanup: (() => void) | undefined
+let pluginSettingsCleanups: Array<() => void> = []
 
 function readJson<T>(key: string, fallback: T): T {
   try {
@@ -297,9 +301,55 @@ function panel(): HTMLElement | null {
 }
 
 function activateRail(view: string): void {
-  document.querySelectorAll<HTMLElement>('[data-maer-view]').forEach((button) => {
-    button.classList.toggle('is-active', button.dataset.maerView === view)
-  })
+  document
+    .querySelectorAll<HTMLElement>('[data-maer-view], [data-maer-plugin-key]')
+    .forEach((button) => {
+      button.classList.toggle(
+        'is-active',
+        button.dataset.maerView === view || button.dataset.maerPluginKey === view,
+      )
+    })
+}
+
+const PLUGIN_ICON_PATHS = {
+  extension:
+    'M12 2a4 4 0 0 1 4 4v2h2a4 4 0 1 1 0 8h-2v2a4 4 0 1 1-8 0v-2H6a4 4 0 1 1 0-8h2V6a4 4 0 0 1 4-4z',
+  tool: 'M14.7 6.3a4 4 0 0 0-5-5L12 3.6 9.6 6 7.3 3.7a4 4 0 0 0 5 5L4 17a2.1 2.1 0 1 0 3 3l8.3-8.3a4 4 0 0 0 5-5L18 9l-2.4-2.4 2.3-2.3a4 4 0 0 0-3.2 2z',
+  vault:
+    'M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zm7 4a5 5 0 1 0 0 10 5 5 0 0 0 0-10zm0 2a3 3 0 0 1 1 5.8V17h-2v-2.2A3 3 0 0 1 12 9z',
+} as const
+
+function clearPluginPanel(): void {
+  pluginPanelCleanup?.()
+  pluginPanelCleanup = undefined
+}
+
+function clearPluginSettings(): void {
+  for (const cleanup of pluginSettingsCleanups.splice(0).reverse()) cleanup()
+}
+
+function installPluginRail(): void {
+  const registry = shellOptions?.pluginRegistry
+  if (!registry) return
+  for (const contribution of registry.railContributions()) {
+    const selector = contribution.placement === 'main' ? '.maer-rail-main' : '.maer-rail-bottom'
+    const target = document.querySelector<HTMLElement>(selector)
+    if (!target) continue
+    const button = document.createElement('button')
+    button.type = 'button'
+    button.className = 'maer-rail-button'
+    button.dataset.maerPluginId = contribution.pluginId
+    button.dataset.maerPluginPanel = contribution.panelId
+    button.dataset.maerPluginKey = contribution.key
+    button.setAttribute('aria-label', contribution.label)
+    button.title = contribution.label
+    button.innerHTML = icon(PLUGIN_ICON_PATHS[contribution.iconId])
+    if (contribution.placement === 'bottom') {
+      target.insertBefore(button, target.querySelector('[data-maer-view="settings"]'))
+    } else {
+      target.append(button)
+    }
+  }
 }
 
 function showToast(message: string): void {
@@ -346,6 +396,7 @@ function renderCallsPanel(container: HTMLElement): void {
 }
 
 function renderSettingsPanel(container: HTMLElement): void {
+  clearPluginSettings()
   const preferences = loadDesktopPreferences()
   container.innerHTML = `<section class="maer-account-card">
       <span class="maer-settings-avatar"></span>
@@ -383,9 +434,31 @@ function renderSettingsPanel(container: HTMLElement): void {
   if (notifications) notifications.checked = preferences.notifications
   const sounds = container.querySelector<HTMLInputElement>('[data-maer-setting="sounds"]')
   if (sounds) sounds.checked = preferences.sounds
+
+  const registry = shellOptions?.pluginRegistry
+  if (!registry) return
+  for (const contribution of registry.settingsContributions()) {
+    const section = document.createElement('section')
+    section.className = 'maer-panel-section maer-plugin-settings-section'
+    section.dataset.maerPluginSettings = contribution.key
+    const heading = document.createElement('h3')
+    heading.textContent = contribution.title
+    const pluginRoot = document.createElement('div')
+    section.append(heading, pluginRoot)
+    container.append(section)
+    const cleanup = registry.mountSettings(
+      contribution.pluginId,
+      contribution.id,
+      pluginRoot,
+    )
+    if (cleanup) pluginSettingsCleanups.push(cleanup)
+    else section.remove()
+  }
 }
 
 function openPanel(view: 'calls' | 'settings'): void {
+  clearPluginPanel()
+  if (view !== 'settings') clearPluginSettings()
   const target = panel()
   if (!target) return
   const title = target.querySelector<HTMLElement>('[data-maer-panel-title]')
@@ -398,7 +471,33 @@ function openPanel(view: 'calls' | 'settings'): void {
   activateRail(view)
 }
 
+function openPluginPanel(pluginId: string, panelId: string, railKey: string): void {
+  clearPluginPanel()
+  clearPluginSettings()
+  const registry = shellOptions?.pluginRegistry
+  const contribution = registry?.panel(pluginId, panelId)
+  const target = panel()
+  const title = target?.querySelector<HTMLElement>('[data-maer-panel-title]')
+  const content = target?.querySelector<HTMLElement>('[data-maer-panel-content]')
+  if (!registry || !contribution || !target || !title || !content) return
+  title.textContent = contribution.title
+  content.replaceChildren()
+  const pluginRoot = document.createElement('div')
+  pluginRoot.className = 'maer-plugin-panel-root'
+  content.append(pluginRoot)
+  const cleanup = registry.mountPanel(pluginId, panelId, pluginRoot)
+  if (!cleanup) {
+    pluginRoot.textContent = 'Ce module est temporairement indisponible.'
+  } else {
+    pluginPanelCleanup = cleanup
+  }
+  target.hidden = false
+  activateRail(railKey)
+}
+
 function closePanel(): void {
+  clearPluginPanel()
+  clearPluginSettings()
   const target = panel()
   if (target) target.hidden = true
   activateRail('chats')
@@ -441,6 +540,17 @@ function onShellClick(event: Event): void {
   const view = button.dataset.maerView
   if (view === 'chats') closePanel()
   if (view === 'calls' || view === 'settings') openPanel(view)
+  if (
+    button.dataset.maerPluginId &&
+    button.dataset.maerPluginPanel &&
+    button.dataset.maerPluginKey
+  ) {
+    openPluginPanel(
+      button.dataset.maerPluginId,
+      button.dataset.maerPluginPanel,
+      button.dataset.maerPluginKey,
+    )
+  }
   switch (button.dataset.maerAction) {
     case 'close-panel':
       closePanel()
@@ -499,11 +609,14 @@ export function installMaerDesktopShell(options: DesktopShellOptions): void {
   options.applyChatPreferences(preferences)
   document.querySelector('#maer-desktop-shell')?.addEventListener('click', onShellClick)
   document.querySelector('#maer-desktop-shell')?.addEventListener('change', onShellChange)
+  installPluginRail()
   installConversationSidebar()
 }
 
 export function uninstallMaerDesktopShell(): void {
   stopMedia()
+  clearPluginPanel()
+  clearPluginSettings()
   uninstallConversationSidebar()
   document.querySelector('#maer-desktop-shell')?.remove()
   document.body.classList.remove('maer-shell-active')

@@ -58,7 +58,6 @@ describe('desktop IPC handlers', () => {
       handlers.preparePasswordLogin({
         identifier: 'alice',
         password: 'not-yet-validated',
-        advanced: false,
         remember: true,
       }),
     ).resolves.toEqual({
@@ -71,6 +70,22 @@ describe('desktop IPC handlers', () => {
       remember: true,
     })
     expect(deps.credentials.save).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    'alice@xmpp.maer.fr',
+    'alice/desktop',
+    'alice@legacy.example',
+  ])('rejects non-local login identifier %j before authentication', async (identifier) => {
+    const handlers = createDesktopHandlers(dependencies())
+
+    await expect(
+      handlers.preparePasswordLogin({
+        identifier,
+        password: 'not-yet-validated',
+        remember: false,
+      }),
+    ).rejects.toThrow(/identifiant local/i)
   })
 
   it('stores only a renderer-confirmed valid credential', async () => {

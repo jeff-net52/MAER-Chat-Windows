@@ -68,4 +68,20 @@ describe('buildConverseConfiguration', () => {
       }),
     ).toThrow()
   })
+
+  it.each([
+    'alice@legacy.example',
+    'alice@example.org',
+    'alice@xmpp.maer.fr/desktop',
+    'alice@@xmpp.maer.fr',
+  ])('rejects authentication for a non-MAER bare account %j', (jid) => {
+    expect(() =>
+      buildConverseConfiguration({
+        jid,
+        secret: 'secret',
+        authKind: 'password',
+        endpoints,
+      }),
+    ).toThrow()
+  })
 })

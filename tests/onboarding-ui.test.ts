@@ -21,18 +21,18 @@ describe('onboarding screens', () => {
 
   it('offers remembered accounts without exposing stored secrets', () => {
     document.body.innerHTML = renderWelcomeScreen([
-      'alice@example.org',
+      'alice@xmpp.maer.fr',
       'bob@xmpp.maer.fr',
     ])
 
     const accounts = [...document.querySelectorAll('[data-account]')].map((item) =>
       item.getAttribute('data-account'),
     )
-    expect(accounts).toEqual(['alice@example.org', 'bob@xmpp.maer.fr'])
+    expect(accounts).toEqual(['alice@xmpp.maer.fr', 'bob@xmpp.maer.fr'])
     expect(document.body.textContent).not.toMatch(/password|mot de passe enregistré/i)
   })
 
-  it('renders an accessible password form with an advanced JID mode', () => {
+  it('renders an accessible local-identifier form with a fixed MAER domain', () => {
     document.body.innerHTML = renderCredentialsScreen()
 
     const password = document.querySelector<HTMLInputElement>('input[type="password"]')
@@ -40,7 +40,7 @@ describe('onboarding screens', () => {
     expect(document.querySelector('[data-role="domain-suffix"]')?.textContent).toBe(
       '@xmpp.maer.fr',
     )
-    expect(document.querySelector('label[for="advanced-jid"]')).not.toBeNull()
+    expect(document.querySelector('[name="advanced"]')).toBeNull()
     expect(document.querySelector('button[type="submit"]')?.textContent).toMatch(/connecter/i)
   })
 

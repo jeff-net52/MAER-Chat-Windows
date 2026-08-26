@@ -1,6 +1,11 @@
 import type { ChatConnectRequest, ChatConnector } from './onboarding-controller'
-import { MAER_XMPP_SERVICE_HOST } from '../shared/service-config'
+import { normalizeAccountJid } from '../shared/jid'
+import {
+  MAER_ACCOUNT_DOMAIN,
+  MAER_XMPP_SERVICE_HOST,
+} from '../shared/service-config'
 import type { CallConversation, CallMode } from './call-service'
+import type { RendererPluginRegistry } from '../plugins/core/renderer/plugin-registry'
 import {
   installMaerDesktopShell,
   launchConversationCall,
@@ -164,10 +169,7 @@ function validateTransport(raw: string, protocol: 'wss:' | 'https:', label: stri
 }
 
 export function buildConverseConfiguration(request: ChatConnectRequest): ConverseConfiguration {
-  const at = request.jid.lastIndexOf('@')
-  if (at < 1 || at === request.jid.length - 1) {
-    throw new Error('Adresse XMPP invalide.')
-  }
+  const jid = normalizeAccountJid(request.jid, MAER_ACCOUNT_DOMAIN)
   const websocketUrl = validateTransport(request.endpoints.websocketUrl, 'wss:', 'Le transport WebSocket')
   const boshServiceUrl = validateTransport(request.endpoints.boshServiceUrl, 'https:', 'Le transport BOSH')
 
@@ -176,7 +178,7 @@ export function buildConverseConfiguration(request: ChatConnectRequest): Convers
     authentication: 'login',
     auto_login: true,
     auto_reconnect: true,
-    jid: request.jid,
+    jid,
     password: request.secret,
     websocket_url: websocketUrl,
     bosh_service_url: boshServiceUrl,
@@ -235,6 +237,8 @@ export class ConverseChatConnector implements ChatConnector {
   private privateApi?: ConversePrivateApi
   private connecting = false
 
+  constructor(private readonly pluginRegistry?: RendererPluginRegistry) {}
+
   async connect(request: ChatConnectRequest): Promise<void> {
     if (this.connecting) {
       throw new Error('Une connexion est déjà en cours.')
@@ -287,6 +291,7 @@ export class ConverseChatConnector implements ChatConnector {
                 show_desktop_notifications: preferences.notifications,
               })
             },
+            pluginRegistry: this.pluginRegistry,
           })
           resolve()
         }

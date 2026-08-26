@@ -27,6 +27,9 @@ try {
   })
   page.on('pageerror', (error) => errors.push(error.message))
 
+  const pluginStatus = await page.evaluate(() => window.maerPlugins.passwordVault.getStatus())
+  assert.deepEqual(pluginStatus, { version: 1, state: 'placeholder' })
+
   await page.waitForSelector('[data-action="start"]', { timeout: 15_000 })
   const wordmark = page.locator('img[alt="MAER Chat"]')
   await wordmark.waitFor({ state: 'visible' })
@@ -43,17 +46,17 @@ try {
   assert.equal(await page.locator('#account-id').getAttribute('autocomplete'), 'username')
   assert.equal(await page.locator('#account-password').getAttribute('autocomplete'), 'current-password')
   assert.equal(await page.locator('[data-role="domain-suffix"]').isVisible(), true)
+  assert.equal(await page.locator('[data-role="domain-suffix"]').textContent(), '@xmpp.maer.fr')
+  assert.equal(await page.locator('#advanced-jid').count(), 0)
 
-  await page.check('#advanced-jid')
-  assert.equal(await page.locator('[data-role="domain-suffix"]').isVisible(), false)
-  await page.fill('#account-id', 'test@xmpp.maer.fr')
+  await page.fill('#account-id', 'test')
   await page.fill('#account-password', 'temporary-not-a-real-secret')
   await page.click('[data-action="toggle-password"]')
   assert.equal(await page.locator('#account-password').getAttribute('type'), 'text')
 
   let networkFailureHandled = false
   if (process.env.MAER_CHAT_NETWORK_SMOKE === '1') {
-    await page.fill('#account-id', 'maer-client-smoke-nonexistent@xmpp.maer.fr')
+    await page.fill('#account-id', 'maer-client-smoke-nonexistent')
     await page.fill('#account-password', 'not-a-real-account-secret')
     await page.click('button[type="submit"]')
     const connectionError = page.locator('[data-role="form-error"]:not([hidden])')
@@ -80,6 +83,7 @@ try {
     title: await page.title(),
     wordmarkLoaded: true,
     credentialFormAccessible: true,
+    pluginPlatformReady: true,
     networkFailureHandled,
   }))
 } finally {

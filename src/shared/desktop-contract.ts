@@ -1,4 +1,4 @@
-import { normalizeLoginJid } from './jid'
+import { normalizeAccountJid, normalizeLoginJid } from './jid'
 import { MAER_ACCOUNT_DOMAIN } from './service-config'
 
 export interface DesktopCredential {
@@ -35,15 +35,26 @@ function requiredBoolean(value: unknown, field: string): boolean {
   return value
 }
 
+function requireOnlyKeys(
+  input: Record<string, unknown>,
+  allowedKeys: readonly string[],
+): void {
+  const allowed = new Set(allowedKeys)
+  if (Object.keys(input).some((key) => !allowed.has(key))) {
+    throw new Error('La requête contient un champ non autorisé')
+  }
+}
+
 export function parseAccountInput(value: unknown): string {
   if (typeof value !== 'string') {
     throw new Error('Compte XMPP invalide')
   }
-  return normalizeLoginJid(value, true, MAER_ACCOUNT_DOMAIN)
+  return normalizeAccountJid(value, MAER_ACCOUNT_DOMAIN)
 }
 
 export function parsePrepareLoginInput(value: unknown): PreparedPasswordLogin {
   const input = asRecord(value)
+  requireOnlyKeys(input, ['identifier', 'password', 'remember'])
   if (
     typeof input.identifier !== 'string' ||
     typeof input.password !== 'string' ||
@@ -51,14 +62,9 @@ export function parsePrepareLoginInput(value: unknown): PreparedPasswordLogin {
   ) {
     throw new Error('Identifiant ou mot de passe invalide')
   }
-  const advanced = requiredBoolean(input.advanced, 'advanced')
   const remember = requiredBoolean(input.remember, 'remember')
   return {
-    jid: normalizeLoginJid(
-      input.identifier,
-      advanced,
-      MAER_ACCOUNT_DOMAIN,
-    ),
+    jid: normalizeLoginJid(input.identifier, MAER_ACCOUNT_DOMAIN),
     password: input.password,
     remember,
   }

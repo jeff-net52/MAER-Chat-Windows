@@ -65,7 +65,7 @@ export function renderCredentialsScreen(): string {
       <form data-form="credentials" novalidate>
         <label for="account-id">Identifiant</label>
         <div class="domain-field">
-          <input id="account-id" name="identifier" type="text" required autocomplete="username" spellcheck="false" placeholder="votre.identifiant" />
+          <input id="account-id" name="identifier" type="text" required autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="votre.identifiant" />
           <span class="domain-suffix" data-role="domain-suffix">@${MAER_ACCOUNT_DOMAIN}</span>
         </div>
         <label for="account-password">Mot de passe</label>
@@ -76,10 +76,6 @@ export function renderCredentialsScreen(): string {
         <label class="check-row" for="remember-account">
           <input id="remember-account" name="remember" type="checkbox" checked />
           <span>Mémoriser ce compte dans le Gestionnaire d’identifiants Windows</span>
-        </label>
-        <label class="check-row advanced-row" for="advanced-jid">
-          <input id="advanced-jid" name="advanced" type="checkbox" />
-          <span>Utiliser une adresse XMPP complète</span>
         </label>
         <p class="form-error" role="alert" data-role="form-error" hidden></p>
         <button class="primary-button" type="submit">Se connecter</button>

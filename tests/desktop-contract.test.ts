@@ -11,7 +11,6 @@ describe('desktop IPC contract', () => {
       parsePrepareLoginInput({
         identifier: ' emilien ',
         password: 'not-logged-or-trimmed ',
-        advanced: false,
         remember: true,
       }),
     ).toEqual({
@@ -24,33 +23,60 @@ describe('desktop IPC contract', () => {
   it('rejects unexpected login shapes', () => {
     expect(() => parsePrepareLoginInput(null)).toThrow(/invalide/i)
     expect(() =>
-      parsePrepareLoginInput({ identifier: 'alice', password: '', advanced: false }),
+      parsePrepareLoginInput({ identifier: 'alice', password: '', remember: false }),
     ).toThrow(/mot de passe/i)
+  })
+
+  it('rejects the removed advanced-JID IPC field', () => {
+    expect(() =>
+      parsePrepareLoginInput({
+        identifier: 'alice',
+        password: 'secret',
+        remember: false,
+        advanced: false,
+      }),
+    ).toThrow(/champ non autorisé/i)
+  })
+
+  it.each([
+    'alice@xmpp.maer.fr',
+    'alice/desktop',
+    'alice@legacy.example',
+  ])('rejects non-local password-login identifier %j', (identifier) => {
+    expect(() =>
+      parsePrepareLoginInput({
+        identifier,
+        password: 'secret',
+        remember: false,
+      }),
+    ).toThrow(/identifiant local/i)
   })
 
   it('accepts only known credential kinds for validated storage', () => {
     expect(
       parseSaveCredentialInput({
-        jid: 'alice@example.org',
+        jid: 'alice@xmpp.maer.fr',
         remember: true,
         credential: { version: 1, authKind: 'password', secret: 'abc' },
       }),
     ).toEqual({
-      jid: 'alice@example.org',
+      jid: 'alice@xmpp.maer.fr',
       remember: true,
       credential: { version: 1, authKind: 'password', secret: 'abc' },
     })
     expect(() =>
       parseSaveCredentialInput({
-        jid: 'alice@example.org',
+        jid: 'alice@xmpp.maer.fr',
         remember: true,
         credential: { version: 1, authKind: 'unknown', secret: 'abc' },
       }),
     ).toThrow(/invalide/i)
   })
 
-  it('rejects XMPP resources in account-only calls', () => {
-    expect(parseAccountInput('alice@example.org')).toBe('alice@example.org')
-    expect(() => parseAccountInput('alice@example.org/desktop')).toThrow()
+  it('accepts only bare accounts on the current MAER domain', () => {
+    expect(parseAccountInput('alice@xmpp.maer.fr')).toBe('alice@xmpp.maer.fr')
+    expect(() => parseAccountInput('alice@xmpp.maer.fr/desktop')).toThrow()
+    expect(() => parseAccountInput('alice@legacy.example')).toThrow(/domaine/i)
+    expect(() => parseAccountInput('alice@example.org')).toThrow(/domaine/i)
   })
 })

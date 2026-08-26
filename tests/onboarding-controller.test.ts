@@ -86,6 +86,11 @@ describe('OnboardingController', () => {
     root.querySelector<HTMLFormElement>('[data-form="credentials"]')!.requestSubmit()
     await flush()
 
+    expect(bridge.preparePasswordLogin).toHaveBeenCalledWith({
+      identifier: 'alice',
+      password: 'secret-password',
+      remember: true,
+    })
     expect(chat.connect).toHaveBeenCalledWith({
       jid: 'alice@xmpp.maer.fr',
       secret: 'secret-password',

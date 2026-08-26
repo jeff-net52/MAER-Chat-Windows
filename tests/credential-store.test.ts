@@ -63,6 +63,8 @@ describe('CredentialStore', () => {
         secret: 'legacy-secret',
       }),
     )
+    backend.values.set('malformed@xmpp.maer.fr/desktop', '{}')
+    backend.values.set('alice@evil.example@xmpp.maer.fr', '{}')
 
     await expect(store.listAccounts()).resolves.toEqual(['alice@xmpp.maer.fr'])
     expect(JSON.stringify(await store.listAccounts())).not.toContain('correct horse')
@@ -71,22 +73,32 @@ describe('CredentialStore', () => {
 
   it('fails closed for malformed stored data', async () => {
     const backend = new MemoryBackend()
-    backend.values.set('alice@example.org', '{"version":1,"authKind":"oauth"}')
+    backend.values.set('alice@xmpp.maer.fr', '{"version":1,"authKind":"oauth"}')
     const store = new CredentialStore(backend)
 
-    await expect(store.load('alice@example.org')).rejects.toThrow(/invalide/i)
+    await expect(store.load('alice@xmpp.maer.fr')).rejects.toThrow(/invalide/i)
   })
 
   it('deletes a credential from the operating-system backend', async () => {
     const backend = new MemoryBackend()
     const store = new CredentialStore(backend)
-    await store.save('alice@example.org', {
+    await store.save('alice@xmpp.maer.fr', {
       version: 1,
       authKind: 'password',
       secret: 'temporary',
     })
 
-    await expect(store.delete('alice@example.org')).resolves.toBe(true)
-    await expect(store.load('alice@example.org')).resolves.toBeUndefined()
+    await expect(store.delete('alice@xmpp.maer.fr')).resolves.toBe(true)
+    await expect(store.load('alice@xmpp.maer.fr')).resolves.toBeUndefined()
+  })
+
+  it('rejects operations targeting a legacy domain', async () => {
+    const store = new CredentialStore(new MemoryBackend())
+
+    await expect(store.save('alice@legacy.example', oauthCredential)).rejects.toThrow(
+      /domaine/i,
+    )
+    await expect(store.load('alice@example.org')).rejects.toThrow(/domaine/i)
+    await expect(store.delete('alice@legacy.example')).rejects.toThrow(/domaine/i)
   })
 })

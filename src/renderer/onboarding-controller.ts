@@ -21,7 +21,6 @@ export interface DesktopBootstrap {
 export interface PasswordLoginInput {
   identifier: string
   password: string
-  advanced: boolean
   remember: boolean
 }
 
@@ -114,7 +113,6 @@ export class OnboardingController {
     this.#encodeQr = encodeQr
     this.#root.addEventListener('click', this.#onClick)
     this.#root.addEventListener('submit', this.#onSubmit)
-    this.#root.addEventListener('change', this.#onChange)
   }
 
   async start(): Promise<void> {
@@ -126,7 +124,6 @@ export class OnboardingController {
     this.#clearPolling()
     this.#root.removeEventListener('click', this.#onClick)
     this.#root.removeEventListener('submit', this.#onSubmit)
-    this.#root.removeEventListener('change', this.#onChange)
   }
 
   #showWelcome(): void {
@@ -195,22 +192,8 @@ export class OnboardingController {
     void this.#connectPassword({
       identifier: String(data.get('identifier') ?? ''),
       password: String(data.get('password') ?? ''),
-      advanced: data.get('advanced') === 'on',
       remember: data.get('remember') === 'on',
     })
-  }
-
-  #onChange = (event: Event): void => {
-    const input = event.target
-    if (!(input instanceof HTMLInputElement) || input.id !== 'advanced-jid') return
-    const suffix = this.#root.querySelector<HTMLElement>('[data-role="domain-suffix"]')
-    const identifier = this.#root.querySelector<HTMLInputElement>('[name="identifier"]')
-    if (suffix) suffix.hidden = input.checked
-    if (identifier) {
-      identifier.placeholder = input.checked
-        ? 'nom@serveur.example'
-        : 'votre.identifiant'
-    }
   }
 
   #togglePassword(button: HTMLElement): void {

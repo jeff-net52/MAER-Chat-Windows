@@ -19,7 +19,7 @@ Date de construction : 25 août 2026.
 - Désinstallation silencieuse et suppression complète du dossier de test : réussies.
 - Intégration réelle au Gestionnaire d’identifiants Windows : écriture, lecture et suppression d’un secret temporaire réussies.
 
-Le smoke test vérifie le chargement du wordmark MAER, la navigation accueil → choix → identifiants, les attributs d’accessibilité/autocomplétion, l’affichage avancé du JID et le bouton de visibilité du mot de passe.
+Le smoke test vérifie le chargement du wordmark MAER, la navigation accueil → choix → identifiants, les attributs d’accessibilité/autocomplétion, le suffixe de domaine MAER fixe et le bouton de visibilité du mot de passe.
 
 ## Artefact
 

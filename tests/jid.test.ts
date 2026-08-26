@@ -1,30 +1,45 @@
 import { describe, expect, it } from 'vitest'
-import { normalizeLoginJid } from '../src/shared/jid'
+import { normalizeAccountJid, normalizeLoginJid } from '../src/shared/jid'
 
 describe('normalizeLoginJid', () => {
   it('appends the MAER domain to a local username', () => {
-    expect(normalizeLoginJid('  emilien  ', false, 'xmpp.maer.fr')).toBe(
+    expect(normalizeLoginJid('  emilien  ', 'xmpp.maer.fr')).toBe(
       'emilien@xmpp.maer.fr',
     )
   })
 
-  it('accepts a complete bare JID only in advanced mode', () => {
-    expect(normalizeLoginJid('alice@example.org', true, 'xmpp.maer.fr')).toBe(
-      'alice@example.org',
+  it.each([
+    'alice@xmpp.maer.fr',
+    'alice/device',
+    'alice@legacy.example',
+    '',
+    '   ',
+  ])(
+    'rejects non-local login input %j',
+    (value) => {
+      expect(() => normalizeLoginJid(value, 'xmpp.maer.fr')).toThrow()
+    },
+  )
+})
+
+describe('normalizeAccountJid', () => {
+  it('accepts only a bare account on the MAER domain', () => {
+    expect(normalizeAccountJid('alice@XMPP.MAER.FR', 'xmpp.maer.fr')).toBe(
+      'alice@xmpp.maer.fr',
     )
   })
 
-  it.each(['alice@example.org', 'alice/device', '', '   '])(
-    'rejects invalid local-only input %j',
+  it.each([
+    'alice',
+    '@xmpp.maer.fr',
+    'alice@xmpp.maer.fr/desktop',
+    'alice@@xmpp.maer.fr',
+    'alice@legacy.example',
+    'alice@example.org',
+  ])(
+    'rejects a non-MAER or non-bare account %j',
     (value) => {
-      expect(() => normalizeLoginJid(value, false, 'xmpp.maer.fr')).toThrow()
-    },
-  )
-
-  it.each(['alice', '@example.org', 'alice@example.org/device', 'alice@@example.org']) (
-    'rejects invalid complete JID %j',
-    (value) => {
-      expect(() => normalizeLoginJid(value, true, 'xmpp.maer.fr')).toThrow()
+      expect(() => normalizeAccountJid(value, 'xmpp.maer.fr')).toThrow()
     },
   )
 })

@@ -7,6 +7,7 @@ import {
   mapPairingPoll,
   mapPreparedPasswordLogin,
 } from './bridge-adapter'
+import { createDesktopPluginBridge } from '../plugins/core/preload/plugin-bridge'
 
 const bridge: DesktopBridge = {
   async getBootstrap() {
@@ -49,3 +50,7 @@ const bridge: DesktopBridge = {
 }
 
 contextBridge.exposeInMainWorld('maerDesktop', Object.freeze(bridge))
+contextBridge.exposeInMainWorld(
+  'maerPlugins',
+  createDesktopPluginBridge((channel) => ipcRenderer.invoke(channel)),
+)

@@ -5,6 +5,7 @@ import {
   loadDesktopPreferences,
   uninstallMaerDesktopShell,
 } from '../src/renderer/desktop-shell'
+import { RendererPluginRegistry } from '../src/plugins/core/renderer/plugin-registry'
 
 describe('WhatsApp-style desktop shell', () => {
   beforeEach(() => {
@@ -104,5 +105,63 @@ describe('WhatsApp-style desktop shell', () => {
 
     expect(document.querySelector('#maer-desktop-shell')).toBeNull()
     expect(document.querySelector('converse-root')).toBe(converse)
+  })
+
+  it('mounts declared plugin rail, panel and settings contributions', async () => {
+    const registry = new RendererPluginRegistry({
+      appVersion: '1.1.0',
+      plugins: [
+        {
+          manifest: {
+            id: 'fr.maer.shell-test',
+            displayName: 'Shell Test',
+            version: '1.0.0',
+            apiVersion: 1,
+            minAppVersion: '1.1.0',
+            capabilities: ['ui.rail', 'ui.panel', 'ui.settings'],
+            contributions: [
+              { kind: 'panel', id: 'home', title: 'Panneau test' },
+              {
+                kind: 'rail',
+                id: 'open',
+                label: 'Plugin test',
+                iconId: 'tool',
+                order: 10,
+                placement: 'main',
+                panelId: 'home',
+              },
+              { kind: 'settings', id: 'preferences', title: 'Réglages test', order: 10 },
+            ],
+          },
+          activate(context) {
+            context.registerPanel('home', (root) => {
+              root.textContent = 'Contenu du plugin'
+            })
+            context.registerSettings('preferences', (root) => {
+              root.textContent = 'Réglages du plugin'
+            })
+          },
+        },
+      ],
+    })
+    await registry.activateAll()
+    installMaerDesktopShell({
+      accountJid: 'alice@xmpp.maer.fr',
+      onLogout: vi.fn(async () => undefined),
+      applyChatPreferences: vi.fn(),
+      pluginRegistry: registry,
+    })
+
+    const pluginButton = document.querySelector<HTMLButtonElement>('[aria-label="Plugin test"]')
+    pluginButton?.click()
+    expect(document.querySelector('[data-maer-panel-title]')?.textContent).toBe('Panneau test')
+    expect(document.querySelector('.maer-plugin-panel-root')?.textContent).toBe(
+      'Contenu du plugin',
+    )
+
+    document.querySelector<HTMLButtonElement>('[data-maer-view="settings"]')?.click()
+    expect(document.querySelector('[data-maer-plugin-settings]')?.textContent).toContain(
+      'Réglages du plugin',
+    )
   })
 })

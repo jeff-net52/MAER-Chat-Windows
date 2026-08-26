@@ -19,24 +19,28 @@ function normalizeDomain(value: string): string {
 
 export function normalizeLoginJid(
   input: string,
-  completeJid: boolean,
   defaultDomain: string,
 ): string {
   const identifier = requiredTrimmed(input, 'L’identifiant du compte est vide')
-
-  if (!completeJid) {
-    if (!LOCAL_PART.test(identifier)) {
-      throw new Error('Saisissez uniquement votre identifiant local')
-    }
-    return `${identifier}@${normalizeDomain(defaultDomain)}`
+  if (!LOCAL_PART.test(identifier)) {
+    throw new Error('Saisissez uniquement votre identifiant local')
   }
+  return `${identifier}@${normalizeDomain(defaultDomain)}`
+}
 
+export function normalizeAccountJid(input: string, expectedDomain: string): string {
+  const identifier = requiredTrimmed(input, 'Le compte XMPP est vide')
   if (identifier.includes('/') || identifier.split('@').length !== 2) {
-    throw new Error('Une adresse XMPP complète sans ressource est requise')
+    throw new Error('Le compte XMPP doit être une adresse MAER sans ressource')
   }
   const [local, domain] = identifier.split('@')
   if (!local || !LOCAL_PART.test(local) || !domain) {
     throw new Error('L’adresse XMPP est invalide')
   }
-  return `${local}@${normalizeDomain(domain)}`
+  const normalizedDomain = normalizeDomain(domain)
+  const requiredDomain = normalizeDomain(expectedDomain)
+  if (normalizedDomain !== requiredDomain) {
+    throw new Error(`Le compte XMPP doit utiliser le domaine ${requiredDomain}`)
+  }
+  return `${local}@${requiredDomain}`
 }
