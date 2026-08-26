@@ -43,7 +43,7 @@ Ne fais pas passer `maerchat://` par `ScanResultProcessor`, qui retourne uniquem
    - objet immuable, sans secret.
 
 2. `xmpp/manager/LinkedDevicesManager.java`
-   - construit et parse les IQ décrites ci-dessous ;
+   - construit et parse les quatre IQ décrites ci-dessous ;
    - aucune donnée persistée localement : le serveur est la source de vérité ;
    - timeout et erreurs XMPP convertis en résultats typés, sans afficher le XML brut.
 
@@ -61,6 +61,26 @@ Ne fais pas passer `maerchat://` par `ScanResultProcessor`, qui retourne uniquem
 5. icône Material locale et chaînes françaises/anglaises. Ne copie aucune ressource WhatsApp/Meta.
 
 ## IQ exactes
+
+### Inspecter une session
+
+Après le scan et avant d’afficher la confirmation :
+
+```xml
+<iq type='get' to='xmpp.maer.fr'>
+  <inspect xmlns='urn:maer:pairing:1' session='…' code='123456'/>
+</iq>
+```
+
+Réponse attendue :
+
+```xml
+<session xmlns='urn:maer:pairing:1' id='…' label='PC Atelier'
+         platform='windows' expires='…'/>
+```
+
+Seules ces métadonnées non secrètes sont affichées. Une erreur ou une réponse
+malformée interdit l’approbation.
 
 ### Lister
 
@@ -122,7 +142,8 @@ Déclarer l’activité dans le manifeste du flavor réellement livré. Respecte
 Écrire les tests avant le code :
 
 1. `MaerPairingUriTest` : URI valide et refus de mauvais schéma/hôte/version/code/sid, doublons, fragment, paramètre inconnu et dépassement de taille.
-2. `LinkedDevicesManagerTest` : XML exact des trois IQ, parsing liste, refus mauvais namespace/type/attributs/horodatages.
+2. `LinkedDevicesManagerTest` : XML exact des quatre IQ, parsing de la
+   prélecture et de la liste, refus mauvais namespace/type/attributs/horodatages.
 3. Test Robolectric de l’écran : scanner lancé, confirmation affichée, aucune IQ avant confirmation, état de chargement, succès, timeout et révocation.
 4. Test multi-compte : aucun compte choisi implicitement si plusieurs sont actifs.
 5. Test de non-régression : les QR `xmpp:` existants suivent toujours leur chemin actuel.

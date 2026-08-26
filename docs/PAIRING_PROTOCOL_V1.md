@@ -4,10 +4,9 @@
 > ni sur ejabberd. Le client Windows prépare le QR et le polling, mais aucun
 > scénario de bout en bout n’est opérationnel ou validé.
 
-> **Point à résoudre avant développement :** le nom du PC est enregistré lors
-> de la création de session, mais absent du QR et d’une réponse consultable par
-> Android. Le protocole doit définir une prélecture XMPP authentifiée de la
-> session, ou renoncer à afficher ce nom avant l’approbation.
+Le nom du PC reste absent du QR. Android l’obtient par la prélecture XMPP
+authentifiée définie ci-dessous, afin d’afficher une valeur issue de la session
+serveur avant toute approbation.
 
 ## Objectif
 
@@ -59,7 +58,35 @@ maerchat://pair?v=1&host=xmpp.maer.fr&sid=<session_id>&code=<6 chiffres>
 
 Le QR ne contient ni mot de passe, ni jeton OAuth, ni nonce de consultation.
 
-## 2. Approbation Android via XMPP
+## 2. Prélecture et approbation Android via XMPP
+
+Après le scan, Android demande d’abord les métadonnées non secrètes de la
+session depuis sa connexion XMPP authentifiée :
+
+```xml
+<iq type='get' to='xmpp.maer.fr' id='inspect-…'>
+  <inspect xmlns='urn:maer:pairing:1'
+           session='…'
+           code='123456'/>
+</iq>
+```
+
+Le serveur valide le domaine local, la session, son expiration et le code,
+puis répond sans clé publique, nonce de consultation ni jeton :
+
+```xml
+<iq type='result' …>
+  <session xmlns='urn:maer:pairing:1'
+           id='…'
+           label='PC Atelier'
+           platform='windows'
+           expires='2026-08-25T12:00:00.000Z'/>
+</iq>
+```
+
+Une session inconnue, expirée ou associée à un mauvais code produit une erreur
+XMPP générique et ne révèle aucune métadonnée. La prélecture ne réserve pas la
+session, ne l’approuve pas et reste sans effet si l’utilisateur annule ensuite.
 
 L’application présente avant envoi :
 
@@ -168,7 +195,8 @@ Le serveur vérifie que l’appareil appartient au bare JID authentifié, puis a
 ## 6. Tests d’acceptation obligatoires
 
 1. QR valide, approbation Android, jeton utilisable avec SASL `X-OAUTH2`.
-2. Code faux, session expirée, session inconnue et autre domaine refusés.
+2. Prélecture valide sans effet de bord ; code faux, session expirée, session
+   inconnue et autre domaine refusés sans fuite de métadonnées.
 3. Signature altérée, mauvais nonce et timestamp hors fenêtre refusés.
 4. Deux approbations concurrentes ne créent qu’un appareil.
 5. Un poll rejoué reste idempotent durant la courte fenêtre de livraison.

@@ -49,6 +49,9 @@ modules:
 ```
 
 Le QR v1 utilise OAuth `sasl_auth`. Vérifier que le backend OAuth est persistant et que SASL `X-OAUTH2` est annoncé sur WebSocket.
+Le handler IQ doit prendre en charge `inspect`, `approve`, `devices` et
+`revoke`. `inspect` ne renvoie que le libellé, la plateforme et l’expiration de
+la session, après validation de son identifiant et du code.
 
 ## 3. Reverse proxy Nginx
 
