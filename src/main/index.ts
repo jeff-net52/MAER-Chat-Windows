@@ -13,7 +13,7 @@ import { createApprovalUri } from '../shared/pairing-protocol'
 import { IPC } from '../shared/ipc-channels'
 import {
   MAER_SERVICE_ENDPOINTS,
-  MAER_XMPP_DOMAIN,
+  MAER_XMPP_SERVICE_HOST,
 } from '../shared/service-config'
 import { CredentialStore, WindowsCredentialBackend } from './credential-store'
 import { createDesktopHandlers } from './ipc-handlers'
@@ -23,6 +23,12 @@ import { PairingSessionManager } from './pairing-session-manager'
 let mainWindow: BrowserWindow | undefined
 let tray: Tray | undefined
 let quitting = false
+
+const e2eUserDataDirectory = process.env.MAER_CHAT_E2E_USER_DATA_DIR
+const e2eMode = process.env.MAER_CHAT_E2E === '1' && Boolean(e2eUserDataDirectory)
+if (e2eMode && e2eUserDataDirectory) {
+  app.setPath('userData', e2eUserDataDirectory)
+}
 
 function iconPath(): string {
   return app.isPackaged
@@ -38,7 +44,7 @@ function pairingManager(): PairingSessionManager {
         const session = await api.createSession(signer, deviceName, app.getVersion())
         return {
           session,
-          approvalUri: createApprovalUri(session, MAER_XMPP_DOMAIN),
+          approvalUri: createApprovalUri(session, MAER_XMPP_SERVICE_HOST),
         }
       },
       poll(session) {
@@ -169,7 +175,7 @@ function createTray(): Tray {
   return result
 }
 
-const gotLock = app.requestSingleInstanceLock()
+const gotLock = e2eMode || app.requestSingleInstanceLock()
 if (!gotLock) {
   app.quit()
 } else {

@@ -1,5 +1,5 @@
 import { normalizeLoginJid } from './jid'
-import { MAER_XMPP_DOMAIN } from './service-config'
+import { MAER_ACCOUNT_DOMAIN } from './service-config'
 
 export interface DesktopCredential {
   version: 1
@@ -39,7 +39,7 @@ export function parseAccountInput(value: unknown): string {
   if (typeof value !== 'string') {
     throw new Error('Compte XMPP invalide')
   }
-  return normalizeLoginJid(value, true, MAER_XMPP_DOMAIN)
+  return normalizeLoginJid(value, true, MAER_ACCOUNT_DOMAIN)
 }
 
 export function parsePrepareLoginInput(value: unknown): PreparedPasswordLogin {
@@ -57,7 +57,7 @@ export function parsePrepareLoginInput(value: unknown): PreparedPasswordLogin {
     jid: normalizeLoginJid(
       input.identifier,
       advanced,
-      MAER_XMPP_DOMAIN,
+      MAER_ACCOUNT_DOMAIN,
     ),
     password: input.password,
     remember,

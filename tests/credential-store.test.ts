@@ -56,7 +56,7 @@ describe('CredentialStore', () => {
       secret: 'correct horse battery staple',
     })
     backend.values.set(
-      'legacy@contacts.chaumont.me',
+      'legacy@example.org',
       JSON.stringify({
         version: 1,
         authKind: 'password',
@@ -66,7 +66,7 @@ describe('CredentialStore', () => {
 
     await expect(store.listAccounts()).resolves.toEqual(['alice@xmpp.maer.fr'])
     expect(JSON.stringify(await store.listAccounts())).not.toContain('correct horse')
-    expect(backend.values.has('legacy@contacts.chaumont.me')).toBe(true)
+    expect(backend.values.has('legacy@example.org')).toBe(true)
   })
 
   it('fails closed for malformed stored data', async () => {

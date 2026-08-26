@@ -28,9 +28,17 @@ describe('buildConverseConfiguration', () => {
       persistent_store: 'IndexedDB',
       persist_credentials: false,
       trusted: true,
-      view_mode: 'fullscreened',
-      singleton: true,
+      view_mode: 'fullscreen',
+      singleton: false,
       i18n: 'fr',
+      visible_toolbar_buttons: {
+        call: true,
+        clear: true,
+        emoji: true,
+        fileupload: true,
+        location: false,
+        spoiler: false,
+      },
     })
   })
 
@@ -49,6 +57,7 @@ describe('buildConverseConfiguration', () => {
     { ...endpoints, websocketUrl: 'ws://xmpp.maer.fr/xmpp-websocket' },
     { ...endpoints, boshServiceUrl: 'http://xmpp.maer.fr/http-bind' },
     { ...endpoints, websocketUrl: 'wss://evil.example/ws' },
+    { ...endpoints, boshServiceUrl: 'https://evil.example/http-bind' },
   ])('rejects insecure or cross-domain transports', (invalidEndpoints) => {
     expect(() =>
       buildConverseConfiguration({

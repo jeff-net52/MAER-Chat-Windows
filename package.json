@@ -1,6 +1,6 @@
 {
   "name": "maer-chat-windows",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "Client XMPP sécurisé MAER Chat pour Windows",
   "private": true,
   "type": "module",

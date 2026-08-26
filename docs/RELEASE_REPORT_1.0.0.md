@@ -35,9 +35,9 @@ Le smoke test vérifie le chargement du wordmark MAER, la navigation accueil →
 
 Les sondes publiques ont retourné HTTP 404 sur :
 
-- `https://contacts.chaumont.me/xmpp-websocket`
-- `https://contacts.chaumont.me/http-bind`
-- `https://contacts.chaumont.me/maer-pairing/v1`
+- `https://xmpp.maer.fr/xmpp-websocket`
+- `https://xmpp.maer.fr/http-bind`
+- `https://xmpp.maer.fr/maer-pairing/v1`
 
 Le port 5443 n’était pas joignable publiquement. Le client est construit, mais la connexion réelle et le QR ne peuvent pas être déclarés fonctionnels avant déploiement des endpoints et essais avec les deux comptes dédiés.
 

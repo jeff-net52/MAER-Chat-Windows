@@ -1,6 +1,6 @@
 import { AsyncEntry, findCredentialsAsync } from '@napi-rs/keyring'
 import { normalizeLoginJid } from '../shared/jid'
-import { MAER_XMPP_DOMAIN } from '../shared/service-config'
+import { MAER_ACCOUNT_DOMAIN } from '../shared/service-config'
 
 const SERVICE = 'MAER Chat XMPP'
 
@@ -67,24 +67,24 @@ export class CredentialStore {
   constructor(private readonly backend: CredentialBackend) {}
 
   async save(jid: string, credential: StoredCredential): Promise<void> {
-    const account = normalizeLoginJid(jid, true, MAER_XMPP_DOMAIN)
+    const account = normalizeLoginJid(jid, true, MAER_ACCOUNT_DOMAIN)
     await this.backend.set(account, JSON.stringify(validateCredential(credential)))
   }
 
   async load(jid: string): Promise<StoredCredential | undefined> {
-    const account = normalizeLoginJid(jid, true, MAER_XMPP_DOMAIN)
+    const account = normalizeLoginJid(jid, true, MAER_ACCOUNT_DOMAIN)
     const value = await this.backend.get(account)
     return value === undefined ? undefined : parseStoredCredential(value)
   }
 
   async delete(jid: string): Promise<boolean> {
-    const account = normalizeLoginJid(jid, true, MAER_XMPP_DOMAIN)
+    const account = normalizeLoginJid(jid, true, MAER_ACCOUNT_DOMAIN)
     return this.backend.delete(account)
   }
 
   async listAccounts(): Promise<string[]> {
     const accounts = await this.backend.listAccounts()
-    const currentDomainSuffix = `@${MAER_XMPP_DOMAIN}`
+    const currentDomainSuffix = `@${MAER_ACCOUNT_DOMAIN}`
     return [...new Set(accounts)]
       .filter((account) => account.toLocaleLowerCase('en-US').endsWith(currentDomainSuffix))
       .sort((left, right) => left.localeCompare(right))

@@ -1,13 +1,15 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import {
+  MAER_ACCOUNT_DOMAIN,
   MAER_SERVICE_ENDPOINTS,
-  MAER_XMPP_DOMAIN,
+  MAER_XMPP_SERVICE_HOST,
 } from '../src/shared/service-config'
 
 describe('MAER service configuration', () => {
-  it('uses the canonical XMPP domain and documented HTTPS routes', () => {
-    expect(MAER_XMPP_DOMAIN).toBe('xmpp.maer.fr')
+  it('separates the existing account domain from the public transport host', () => {
+    expect(MAER_ACCOUNT_DOMAIN).toBe('xmpp.maer.fr')
+    expect(MAER_XMPP_SERVICE_HOST).toBe('xmpp.maer.fr')
     expect(MAER_SERVICE_ENDPOINTS).toEqual({
       domain: 'xmpp.maer.fr',
       websocketUrl: 'wss://xmpp.maer.fr/xmpp-websocket',

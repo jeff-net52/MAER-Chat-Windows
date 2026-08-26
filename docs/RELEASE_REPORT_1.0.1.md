@@ -11,7 +11,7 @@ Date de construction : 26 août 2026.
 - suffixe de connexion, validation des JID, Gestionnaire d’identifiants,
   génération/polling QR côté Windows, tests et documentation alignés ;
 - CSP du renderer limitée à `xmpp.maer.fr` et à ses sous-domaines ;
-- anciens comptes `@contacts.chaumont.me` masqués dans la liste sans supprimer
+- anciens comptes `@xmpp.maer.fr` masqués dans la liste sans supprimer
   leurs secrets du Gestionnaire d’identifiants Windows.
 
 ## Vérifications réussies

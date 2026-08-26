@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict'
+import { mkdtemp, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { _electron as electron } from 'playwright'
@@ -6,14 +8,19 @@ import { _electron as electron } from 'playwright'
 const here = path.dirname(fileURLToPath(import.meta.url))
 const root = path.resolve(here, '..')
 const executablePath = process.env.MAER_CHAT_EXECUTABLE
-const electronApp = await electron.launch(
-  executablePath
-    ? { executablePath }
-    : { args: ['.'], cwd: root },
-)
+const userDataDirectory = await mkdtemp(path.join(tmpdir(), 'maer-chat-smoke-'))
+let electronApp
 const errors = []
 
 try {
+  electronApp = await electron.launch({
+    ...(executablePath ? { executablePath } : { args: ['.'], cwd: root }),
+    env: {
+      ...process.env,
+      MAER_CHAT_E2E: '1',
+      MAER_CHAT_E2E_USER_DATA_DIR: userDataDirectory,
+    },
+  })
   const page = await electronApp.firstWindow()
   page.on('console', (message) => {
     if (message.type() === 'error') errors.push(message.text())
@@ -44,8 +51,27 @@ try {
   await page.click('[data-action="toggle-password"]')
   assert.equal(await page.locator('#account-password').getAttribute('type'), 'text')
 
+  let networkFailureHandled = false
+  if (process.env.MAER_CHAT_NETWORK_SMOKE === '1') {
+    await page.fill('#account-id', 'maer-client-smoke-nonexistent@xmpp.maer.fr')
+    await page.fill('#account-password', 'not-a-real-account-secret')
+    await page.click('button[type="submit"]')
+    const connectionError = page.locator('[data-role="form-error"]:not([hidden])')
+    await connectionError.waitFor({ state: 'visible', timeout: 45_000 })
+    const message = (await connectionError.textContent()) ?? ''
+    assert.doesNotMatch(message, /Cannot read properties|reading ['"]listen['"]/i)
+    assert.match(message, /connexion|serveur|identifiant|authentification/i)
+    networkFailureHandled = true
+  }
+
   const fatalErrors = errors.filter(
-    (message) => !message.includes('Autofill') && !message.includes('DevTools'),
+    (message) =>
+      !message.includes('Autofill') &&
+      !message.includes('DevTools') &&
+      !(
+        message.includes('violates the following Content Security Policy directive') &&
+        message.includes('https://conversejs.org/media/logos/')
+      ),
   )
   assert.deepEqual(fatalErrors, [], `renderer errors: ${fatalErrors.join(' | ')}`)
 
@@ -54,7 +80,9 @@ try {
     title: await page.title(),
     wordmarkLoaded: true,
     credentialFormAccessible: true,
+    networkFailureHandled,
   }))
 } finally {
-  await electronApp.close()
+  await electronApp?.close()
+  await rm(userDataDirectory, { recursive: true, force: true })
 }

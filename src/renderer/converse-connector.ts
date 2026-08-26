@@ -1,18 +1,41 @@
 import type { ChatConnectRequest, ChatConnector } from './onboarding-controller'
+import { MAER_XMPP_SERVICE_HOST } from '../shared/service-config'
+import type { CallConversation, CallMode } from './call-service'
+import {
+  installMaerDesktopShell,
+  launchConversationCall,
+  uninstallMaerDesktopShell,
+  type DesktopPreferences,
+} from './desktop-shell'
 
 interface ConverseConfiguration extends Record<string, unknown> {
   maer_oauth_only: boolean
 }
 
+interface ConversePrivateApi {
+  listen: {
+    once(event: string, callback: (...args: unknown[]) => void): void
+    on?(event: string, callback: (...args: any[]) => unknown): void
+  }
+  settings?: {
+    set(settings: Record<string, unknown>): void
+  }
+  user?: {
+    logout?: () => Promise<void>
+  }
+}
+
+interface ConverseObserverPlugin {
+  _converse?: {
+    api: ConversePrivateApi
+  }
+  initialize(): void
+}
+
 interface ConverseRuntime {
   initialize(config: Record<string, unknown>): Promise<unknown> | unknown
-  api: {
-    listen: {
-      once(event: string, callback: (...args: unknown[]) => void): void
-    }
-    user?: {
-      logout?: () => Promise<void>
-    }
+  plugins: {
+    add(name: string, plugin: ConverseObserverPlugin): void
   }
   env: {
     Strophe: {
@@ -21,13 +44,118 @@ interface ConverseRuntime {
   }
 }
 
-function validateTransport(raw: string, protocol: 'wss:' | 'https:', domain: string, label: string): string {
+interface ConverseConnectionObserver {
+  generation: number
+  privateApi?: ConversePrivateApi
+  onConnected?: () => void
+  onDisconnected?: (reason: unknown) => void
+}
+
+interface ConverseChatElement {
+  model?: CallConversation
+}
+
+interface ConverseCallEvent {
+  model?: CallConversation
+}
+
+interface ConverseHeadingButton {
+  a_class: string
+  handler(event: Event): void
+  i18n_text: string
+  i18n_title: string
+  icon_class: string
+  name: string
+  standalone: boolean
+}
+
+const CONNECTION_OBSERVER_PLUGIN = 'maer-chat-connection-observer'
+const observers = new WeakMap<ConverseRuntime, ConverseConnectionObserver>()
+
+function callHeadingButton(
+  conversation: CallConversation,
+  mode: CallMode,
+): ConverseHeadingButton {
+  const labels: Record<CallMode, { text: string; title: string; icon: string }> = {
+    audio: { text: 'Appel audio', title: 'Démarrer un appel audio', icon: 'fa-phone' },
+    video: { text: 'Appel vidéo', title: 'Démarrer un appel vidéo', icon: 'fa-video' },
+    screen: {
+      text: "Partager l’écran",
+      title: "Démarrer une visioconférence avec partage d’écran",
+      icon: 'fa-desktop',
+    },
+  }
+  const label = labels[mode]
+  return {
+    a_class: `maer-${mode}-call`,
+    handler(event) {
+      event.preventDefault()
+      event.stopPropagation()
+      void launchConversationCall(conversation, mode)
+    },
+    i18n_text: label.text,
+    i18n_title: label.title,
+    icon_class: label.icon,
+    name: `maer-${mode}-call`,
+    standalone: true,
+  }
+}
+
+function installCallExtensions(privateApi: ConversePrivateApi): void {
+  privateApi.listen.on?.(
+    'getHeadingButtons',
+    (element: ConverseChatElement, buttons: ConverseHeadingButton[]) => {
+      const conversation = element?.model
+      if (!conversation || buttons.some((button) => button.name === 'maer-video-call')) {
+        return buttons
+      }
+      buttons.unshift(
+        callHeadingButton(conversation, 'audio'),
+        callHeadingButton(conversation, 'video'),
+        callHeadingButton(conversation, 'screen'),
+      )
+      return buttons
+    },
+  )
+  privateApi.listen.on?.('callButtonClicked', (event: ConverseCallEvent) => {
+    if (event?.model) void launchConversationCall(event.model, 'audio')
+  })
+}
+
+function connectionObserver(runtime: ConverseRuntime): ConverseConnectionObserver {
+  const existing = observers.get(runtime)
+  if (existing) return existing
+
+  const observer: ConverseConnectionObserver = { generation: 0 }
+  const plugin: ConverseObserverPlugin = {
+    initialize() {
+      const privateApi = this._converse?.api
+      if (!privateApi?.listen) {
+        throw new Error('L’API de connexion Converse.js est indisponible.')
+      }
+      observer.privateApi = privateApi
+      installCallExtensions(privateApi)
+      const generation = observer.generation
+      privateApi.listen.once('connected', () => {
+        if (observer.generation === generation) observer.onConnected?.()
+      })
+      privateApi.listen.once('disconnected', (reason: unknown) => {
+        if (observer.generation === generation) observer.onDisconnected?.(reason)
+      })
+    },
+  }
+  runtime.plugins.add(CONNECTION_OBSERVER_PLUGIN, plugin)
+  observers.set(runtime, observer)
+  return observer
+}
+
+function validateTransport(raw: string, protocol: 'wss:' | 'https:', label: string): string {
   const parsed = new URL(raw)
   if (parsed.protocol !== protocol) {
     throw new Error(`${label} doit utiliser ${protocol === 'wss:' ? 'WSS' : 'HTTPS'}.`)
   }
-  if (parsed.hostname.toLowerCase() !== domain.toLowerCase()) {
-    throw new Error(`${label} doit appartenir au domaine XMPP.`)
+  if (parsed.hostname.toLowerCase() !== MAER_XMPP_SERVICE_HOST) {
+    throw new Error(`${label} doit appartenir au serveur XMPP MAER.`)
   }
   if (parsed.username || parsed.password || parsed.hash) {
     throw new Error(`${label} contient des éléments non autorisés.`)
@@ -40,9 +168,8 @@ export function buildConverseConfiguration(request: ChatConnectRequest): Convers
   if (at < 1 || at === request.jid.length - 1) {
     throw new Error('Adresse XMPP invalide.')
   }
-  const domain = request.jid.slice(at + 1).toLowerCase()
-  const websocketUrl = validateTransport(request.endpoints.websocketUrl, 'wss:', domain, 'Le transport WebSocket')
-  const boshServiceUrl = validateTransport(request.endpoints.boshServiceUrl, 'https:', domain, 'Le transport BOSH')
+  const websocketUrl = validateTransport(request.endpoints.websocketUrl, 'wss:', 'Le transport WebSocket')
+  const boshServiceUrl = validateTransport(request.endpoints.boshServiceUrl, 'https:', 'Le transport BOSH')
 
   return {
     maer_oauth_only: request.authKind === 'oauth',
@@ -54,8 +181,8 @@ export function buildConverseConfiguration(request: ChatConnectRequest): Convers
     websocket_url: websocketUrl,
     bosh_service_url: boshServiceUrl,
     discover_connection_methods: false,
-    view_mode: 'fullscreened',
-    singleton: true,
+    view_mode: 'fullscreen',
+    singleton: false,
     show_controlbox_by_default: true,
     allow_logout: false,
     allow_registration: false,
@@ -85,6 +212,14 @@ export function buildConverseConfiguration(request: ChatConnectRequest): Convers
     notification_icon: './maer-chat-mark.png',
     sounds_path: '',
     assets_path: './',
+    visible_toolbar_buttons: {
+      call: true,
+      clear: true,
+      emoji: true,
+      fileupload: true,
+      location: false,
+      spoiler: false,
+    },
   }
 }
 
@@ -97,6 +232,7 @@ function userFacingConnectionError(error: unknown): Error {
 
 export class ConverseChatConnector implements ChatConnector {
   private runtime?: ConverseRuntime
+  private privateApi?: ConversePrivateApi
   private connecting = false
 
   async connect(request: ChatConnectRequest): Promise<void> {
@@ -111,8 +247,11 @@ export class ConverseChatConnector implements ChatConnector {
     try {
       const imported = await import('converse.js')
       const converse = imported.default as unknown as ConverseRuntime
+      const observer = connectionObserver(converse)
+      observer.generation += 1
       const built = buildConverseConfiguration(request)
       const { maer_oauth_only: oauthOnly, ...configuration } = built
+      configuration.whitelisted_plugins = [CONNECTION_OBSERVER_PLUGIN]
 
       if (oauthOnly) {
         const Mechanism = converse.env.Strophe.SASLXOAuth2
@@ -130,19 +269,33 @@ export class ConverseChatConnector implements ChatConnector {
           }
         }, 35_000)
 
-        converse.api.listen.once('connected', () => {
+        observer.onConnected = () => {
           if (settled) return
           settled = true
           window.clearTimeout(timeout)
           this.runtime = converse
+          this.privateApi = observer.privateApi
+          installMaerDesktopShell({
+            accountJid: request.jid,
+            onLogout: async () => {
+              await this.disconnect()
+              window.location.reload()
+            },
+            applyChatPreferences: (preferences: DesktopPreferences) => {
+              this.privateApi?.settings?.set({
+                play_sounds: preferences.sounds,
+                show_desktop_notifications: preferences.notifications,
+              })
+            },
+          })
           resolve()
-        })
-        converse.api.listen.once('disconnected', (reason: unknown) => {
+        }
+        observer.onDisconnected = (reason: unknown) => {
           if (settled) return
           settled = true
           window.clearTimeout(timeout)
           reject(userFacingConnectionError(reason))
-        })
+        }
 
         Promise.resolve(converse.initialize(configuration)).catch((error: unknown) => {
           if (settled) return
@@ -157,10 +310,12 @@ export class ConverseChatConnector implements ChatConnector {
   }
 
   async disconnect(): Promise<void> {
-    const logout = this.runtime?.api.user?.logout
+    uninstallMaerDesktopShell()
+    const logout = this.privateApi?.user?.logout
     if (logout) {
       await logout()
     }
     this.runtime = undefined
+    this.privateApi = undefined
   }
 }
