@@ -1,0 +1,17 @@
+{
+  "name": "@maer/chat-password-vault-extension",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Extension MAER Chat Password Vault pour Chromium et Firefox",
+  "license": "AGPL-3.0-or-later",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "lint": "node scripts/lint.mjs",
+    "package": "node scripts/package.mjs",
+    "test": "node --test --test-reporter=spec tests/*.node-test.cjs",
+    "verify": "npm run lint && npm test && npm run package && node scripts/verify-packages.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

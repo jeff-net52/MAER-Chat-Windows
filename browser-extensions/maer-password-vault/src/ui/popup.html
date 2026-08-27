@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Coffre MAER</title>
+    <link rel="stylesheet" href="popup.css">
+  </head>
+  <body>
+    <main class="shell">
+      <header class="hero">
+        <div class="brand-mark" aria-hidden="true">M</div>
+        <div>
+          <p class="eyebrow">MAER CHAT</p>
+          <h1>Coffre de mots de passe</h1>
+        </div>
+      </header>
+
+      <section class="status-card" aria-live="polite">
+        <div class="status-row">
+          <span id="status-dot" class="status-dot"></span>
+          <div class="status-copy">
+            <strong id="status-title">Verification...</strong>
+            <span id="status-detail">Connexion securisee au client MAER</span>
+          </div>
+        </div>
+        <div id="origin" class="origin">Site non disponible</div>
+      </section>
+
+      <section class="instructions">
+        <span class="step">1</span>
+        <p>Placez le curseur dans un champ mot de passe, puis cliquez sur la cle <strong>MAER</strong>.</p>
+      </section>
+
+      <div class="actions">
+        <button id="refresh" class="button primary" type="button">Actualiser</button>
+        <button id="lock" class="button secondary" type="button">Verrouiller</button>
+      </div>
+
+      <footer>
+        <span class="shield" aria-hidden="true">&#9670;</span>
+        Aucun secret conserve dans le navigateur
+      </footer>
+    </main>
+    <script src="../common/constants.js"></script>
+    <script src="../common/protocol.js"></script>
+    <script src="popup.js"></script>
+  </body>
+</html>
