@@ -15,7 +15,6 @@
     "nativeMessaging"
   ],
   "host_permissions": [
-    "http://*/*",
     "https://*/*"
   ],
   "background": {
@@ -37,7 +36,6 @@
   "content_scripts": [
     {
       "matches": [
-        "http://*/*",
         "https://*/*"
       ],
       "js": [

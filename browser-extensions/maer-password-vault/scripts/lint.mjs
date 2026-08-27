@@ -65,7 +65,7 @@ for (const browser of ['chromium', 'firefox']) {
   if (manifest.permissions.includes('storage') || manifest.externally_connectable) {
     throw new Error(`${browser} manifest exposes forbidden persistence or external messaging`);
   }
-  const allowedHosts = JSON.stringify(['http://*/*', 'https://*/*']);
+  const allowedHosts = JSON.stringify(['https://*/*']);
   if (JSON.stringify(manifest.host_permissions) !== allowedHosts) {
     throw new Error(`${browser} host permissions changed`);
   }

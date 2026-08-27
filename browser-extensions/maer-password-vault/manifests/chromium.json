@@ -4,6 +4,7 @@
   "short_name": "Coffre MAER",
   "version": "0.1.0",
   "description": "Remplissage explicite et securise depuis le coffre local MAER Chat.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAqebxGgRMpY39u8HTgAwz2qMsSABYS25XXbyI0MFRUoU46uzYCuG58+D5oZaVpevXjXKxZ3iPR10T79Jsa0yvcm0pzpeON7dRXyUrzX9i3UYj8EgBh84c77OXfoVlEyGKysc8wouz5CL3bGhxa5TEJkYyQ1bekkUozhGmfXWJaZvyU8RqMYqfFU7pDjoApsrwqUlH2w9k9pmSVALCCGZAeDrvzWqoGAKlcA6cErpPcdknfVAMjc9ZiVCdOwoa/quBOL0wTd57lT6ykW469pYPmCUwVZ/exRbR6PvG/4q/CdbS7GnfxXO45WR6JYT7uxWrEswhLoRRKrmkVkHnk5OdFwIDAQAB",
   "icons": {
     "16": "assets/icon-16.png",
     "32": "assets/icon-32.png",
@@ -15,7 +16,6 @@
     "nativeMessaging"
   ],
   "host_permissions": [
-    "http://*/*",
     "https://*/*"
   ],
   "background": {
@@ -32,7 +32,6 @@
   "content_scripts": [
     {
       "matches": [
-        "http://*/*",
         "https://*/*"
       ],
       "js": [

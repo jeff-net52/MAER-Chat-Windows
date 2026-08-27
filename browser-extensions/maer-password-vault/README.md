@@ -7,12 +7,12 @@ la palette sombre MAER Chat.
 
 ## Etat de livraison
 
-Ce sous-projet livre **uniquement l'extension navigateur** et la specification de
-son protocole. L'hote Native Messaging `fr.maer.password_vault`, son manifeste
-d'installation Windows et l'integration au coffre du client MAER Chat ne sont pas
-livres ici. Jusqu'a leur installation, l'extension reste volontairement
-verrouillee et ne propose aucun stockage local, aucun service cloud et aucun mode
-de secours.
+L'extension est livree avec l'hote Windows `fr.maer.password_vault` integre au
+client MAER Chat. L'installateur NSIS enregistre des manifestes HKCU distincts
+pour Edge, Chrome et Firefox. Le proxy lance par le navigateur authentifie un
+pipe local vers l'unique session de coffre du client ; si le client est ferme ou
+le coffre verrouille, l'extension reste volontairement verrouillee. Elle ne
+propose aucun stockage local, service cloud ou mode de secours.
 
 ## Garanties de conception
 
@@ -21,7 +21,7 @@ de secours.
 - aucun mot de passe dans `storage`, `localStorage`, IndexedDB, les journaux ou
   la configuration de l'extension ;
 - aucun acces reseau : le seul canal externe est Native Messaging ;
-- origine HTTP(S) calculee par le background depuis l'onglet emetteur, jamais
+- origine HTTPS calculee par le background depuis l'onglet emetteur, jamais
   acceptee depuis un script de page ;
 - protocole borne, versionne et correle par identifiant de requete ;
 - verrouillage ferme en cas d'hote absent, de reponse invalide ou de delai depasse.
@@ -40,14 +40,15 @@ Les archives reproductibles sont produites dans `packages/` :
 - `maer-password-vault-chromium-0.1.0.zip` pour Edge et Chrome ;
 - `maer-password-vault-firefox-0.1.0.zip` pour Firefox.
 
-Consulter [docs/installation.md](docs/installation.md) pour le chargement en mode
-developpeur et [docs/native-messaging-protocol.md](docs/native-messaging-protocol.md)
-pour implementer l'hote Windows.
+Consulter [docs/installation.md](docs/installation.md) pour l'installation et le
+chargement en mode developpeur, puis
+[docs/native-messaging-protocol.md](docs/native-messaging-protocol.md) pour le
+contrat de l'hote Windows.
 
 ## Utilisation
 
-1. Deverrouiller le coffre dans MAER Chat lorsque l'hote natif sera livre.
-2. Placer le curseur dans un champ mot de passe HTTP(S).
+1. Ouvrir MAER Chat et deverrouiller le coffre.
+2. Placer le curseur dans un champ mot de passe HTTPS.
 3. Cliquer sur la cle MAER affichee a droite du champ.
 4. Choisir un compte, generer un mot de passe ou enregistrer les valeurs saisies.
 

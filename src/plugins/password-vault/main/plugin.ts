@@ -30,9 +30,20 @@ import {
 import {
   ClipboardLease,
   generatePassword,
+  generatePasswordForPolicy,
   type PasswordVaultClipboard,
   type SecureRandomIndex,
 } from './password-tools'
+import type {
+  NativeVaultCredentialSummary,
+  NativeVaultGateway,
+  NativeVaultGeneratePolicy,
+  NativeVaultLookupInput,
+  NativeVaultRevealInput,
+  NativeVaultRevealedCredential,
+  NativeVaultSaveInput,
+  NativeVaultStatus,
+} from './native-vault-gateway'
 import {
   createWindowsPasswordVaultSession,
   PasswordVaultSessionError,
@@ -197,6 +208,75 @@ export class PasswordVaultController {
   }
 }
 
+class NativeVaultGatewayError extends Error {
+  constructor(readonly code: 'DENIED' | 'NOT_FOUND' | 'LOCKED') {
+    super('Native password vault operation failed')
+    this.name = 'NativeVaultGatewayError'
+  }
+}
+
+function nativeBoundedString(
+  value: unknown,
+  maximum: number,
+  allowEmpty = false,
+): string {
+  if (
+    typeof value !== 'string' ||
+    value.length > maximum ||
+    (!allowEmpty && value.length === 0) ||
+    value.includes('\0')
+  ) {
+    throw new NativeVaultGatewayError('DENIED')
+  }
+  return value
+}
+
+function exactSecureNativeOrigin(value: unknown): URL {
+  const raw = nativeBoundedString(value, 512)
+  let origin: URL
+  try {
+    origin = new URL(raw)
+  } catch {
+    throw new NativeVaultGatewayError('DENIED')
+  }
+  if (
+    origin.protocol !== 'https:' ||
+    origin.origin !== raw ||
+    origin.username ||
+    origin.password ||
+    origin.pathname !== '/' ||
+    origin.search ||
+    origin.hash
+  ) {
+    throw new NativeVaultGatewayError('DENIED')
+  }
+  return origin
+}
+
+function entryBelongsToOrigin(entry: PasswordVaultEntrySummary, origin: string): boolean {
+  try {
+    return new URL(entry.url).origin === origin
+  } catch {
+    return false
+  }
+}
+
+function nativeSummary(entry: PasswordVaultEntrySummary): NativeVaultCredentialSummary {
+  const updatedAt = Date.parse(entry.updatedAt)
+  if (!Number.isSafeInteger(updatedAt) || updatedAt < 0) {
+    throw new PasswordVaultEntryError(
+      "La date de l’entrée est invalide.",
+      'invalid-entry',
+    )
+  }
+  return Object.freeze({
+    credentialId: entry.id,
+    username: entry.username,
+    label: entry.title,
+    updatedAt,
+  })
+}
+
 class LocalPasswordVaultOperations implements PasswordVaultOperations {
   private readonly session: VaultSession<Kdbx>
   private readonly clipboardLease: ClipboardLease
@@ -281,6 +361,96 @@ class LocalPasswordVaultOperations implements PasswordVaultOperations {
     })
   }
 
+  async nativeStatus(): Promise<NativeVaultStatus> {
+    const snapshot = await this.session.snapshot()
+    return Object.freeze({ state: snapshot.state === 'unlocked' ? 'ready' : 'locked' })
+  }
+
+  async nativeLookup(
+    input: NativeVaultLookupInput,
+  ): Promise<readonly NativeVaultCredentialSummary[]> {
+    const origin = exactSecureNativeOrigin(input.origin).origin
+    const usernameHint = nativeBoundedString(input.usernameHint, 320, true)
+    nativeBoundedString(input.formSignature, 256, true)
+    const { epoch } = await this.unlockedSnapshot()
+    return this.session.inspect(epoch, (database) => {
+      const matching = listPasswordVaultEntries(database as Kdbx)
+        .filter((entry) => entryBelongsToOrigin(entry, origin))
+        .slice(0, 50)
+      if (usernameHint) {
+        matching.sort((left, right) => {
+          const leftMatch = left.username === usernameHint ? 0 : 1
+          const rightMatch = right.username === usernameHint ? 0 : 1
+          return leftMatch - rightMatch
+        })
+      }
+      return Object.freeze(matching.map(nativeSummary))
+    })
+  }
+
+  async nativeReveal(
+    input: NativeVaultRevealInput,
+  ): Promise<NativeVaultRevealedCredential> {
+    const origin = exactSecureNativeOrigin(input.origin).origin
+    const credentialId = nativeBoundedString(input.credentialId, 128)
+    const { epoch } = await this.unlockedSnapshot()
+    return this.session.inspect(epoch, (database) => {
+      const entry = listPasswordVaultEntries(database as Kdbx).find(
+        (candidate) => candidate.id === credentialId,
+      )
+      if (!entry) throw new NativeVaultGatewayError('NOT_FOUND')
+      if (!entryBelongsToOrigin(entry, origin)) {
+        throw new NativeVaultGatewayError('DENIED')
+      }
+      return {
+        credentialId,
+        username: entry.username,
+        password: passwordForClipboard(database as Kdbx, credentialId),
+      }
+    })
+  }
+
+  async nativeSave(input: NativeVaultSaveInput): Promise<void> {
+    const originUrl = exactSecureNativeOrigin(input.origin)
+    const credentialId = nativeBoundedString(input.credentialId, 128, true)
+    const username = nativeBoundedString(input.username, 320, true)
+    const password = nativeBoundedString(input.password, 4_096)
+    const label = nativeBoundedString(input.label, 256, true)
+    const { epoch } = await this.unlockedSnapshot()
+    await this.session.mutate(epoch, (database) => {
+      if (!credentialId) {
+        addPasswordVaultEntry(database as Kdbx, {
+          title: label || originUrl.hostname,
+          username,
+          password,
+          url: `${originUrl.origin}/`,
+        })
+        return
+      }
+      const existing = listPasswordVaultEntries(database as Kdbx).find(
+        (entry) => entry.id === credentialId,
+      )
+      if (!existing) throw new NativeVaultGatewayError('NOT_FOUND')
+      if (!entryBelongsToOrigin(existing, originUrl.origin)) {
+        throw new NativeVaultGatewayError('DENIED')
+      }
+      updatePasswordVaultEntry(database as Kdbx, {
+        id: credentialId,
+        title: label || existing.title,
+        username,
+        url: existing.url,
+        password: { mode: 'replace', value: password },
+      })
+    })
+  }
+
+  async nativeGenerate(policy: NativeVaultGeneratePolicy): Promise<string> {
+    const { epoch } = await this.unlockedSnapshot()
+    return this.session.inspect(epoch, () =>
+      generatePasswordForPolicy(policy, this.randomIndex),
+    )
+  }
+
   async dispose(): Promise<void> {
     this.clipboardLease.dispose()
     await this.session.dispose()
@@ -292,6 +462,34 @@ class LocalPasswordVaultOperations implements PasswordVaultOperations {
       throw new PasswordVaultSessionError('Le coffre est verrouillé.', 'locked')
     }
     return snapshot
+  }
+}
+
+class LocalNativeVaultGateway implements NativeVaultGateway {
+  constructor(private readonly operations: LocalPasswordVaultOperations) {}
+
+  status(): Promise<NativeVaultStatus> {
+    return this.operations.nativeStatus()
+  }
+
+  lookup(input: NativeVaultLookupInput): Promise<readonly NativeVaultCredentialSummary[]> {
+    return this.operations.nativeLookup(input)
+  }
+
+  reveal(input: NativeVaultRevealInput): Promise<NativeVaultRevealedCredential> {
+    return this.operations.nativeReveal(input)
+  }
+
+  save(input: NativeVaultSaveInput): Promise<void> {
+    return this.operations.nativeSave(input)
+  }
+
+  generate(policy: NativeVaultGeneratePolicy): Promise<string> {
+    return this.operations.nativeGenerate(policy)
+  }
+
+  async lock(): Promise<void> {
+    await this.operations.lock()
   }
 }
 
@@ -316,7 +514,9 @@ export function createPasswordVaultController(
   )
 }
 
-export type PasswordVaultMainPluginOptions = PasswordVaultControllerOptions
+export interface PasswordVaultMainPluginOptions extends PasswordVaultControllerOptions {
+  publishNativeGateway?(gateway: NativeVaultGateway | undefined): void
+}
 
 export function createPasswordVaultMainPlugin(
   options: PasswordVaultMainPluginOptions,
@@ -324,9 +524,28 @@ export function createPasswordVaultMainPlugin(
   return {
     manifest: PASSWORD_VAULT_MANIFEST,
     activate(context) {
-      const controller = createPasswordVaultController(options)
+      const operations = new LocalPasswordVaultOperations(
+        options.vaultPath,
+        options.powerMonitor,
+        options.clipboard,
+        options.randomIndex,
+      )
+      const controller = new PasswordVaultController(operations)
+      const gateway = new LocalNativeVaultGateway(operations)
       context.ipc.handle('request', (value: unknown) => controller.handle(value))
-      return () => controller.dispose()
+      try {
+        options.publishNativeGateway?.(gateway)
+      } catch (error) {
+        void controller.dispose()
+        throw error
+      }
+      return async () => {
+        try {
+          options.publishNativeGateway?.(undefined)
+        } finally {
+          await controller.dispose()
+        }
+      }
     },
   }
 }

@@ -13,7 +13,8 @@ describe.runIf(enabled)('Windows keyring binary integration (opt-in)', () => {
     const secret = new Uint8Array(32).fill(0xa5)
     try {
       await entry.setSecret(secret)
-      await expect(entry.getSecret()).resolves.toEqual(secret)
+      const restored = await entry.getSecret()
+      expect(Uint8Array.from(restored ?? [])).toEqual(secret)
     } finally {
       secret.fill(0)
       await entry.deleteCredential().catch(() => false)

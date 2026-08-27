@@ -11,9 +11,16 @@ import {
 } from 'electron'
 import { hostname } from 'node:os'
 import { join } from 'node:path'
-import { pathToFileURL } from 'node:url'
 import { MainPluginHost } from '../plugins/core/main/plugin-host'
 import { createFirstPartyMainPlugins } from '../plugins/main-registry'
+import type { NativeVaultGateway } from '../plugins/password-vault/main/native-vault-gateway'
+import {
+  detectNativeMessagingRuntimeLaunch,
+  type NativeMessagingRuntimeLaunch,
+} from '../native-messaging/launch'
+import { runNativeMessagingHost } from '../native-messaging/native-host'
+import { NativeVaultPipeServer } from '../native-messaging/pipe-server'
+import { connectNativeMessagingShimTransport } from '../native-messaging/shim-transport'
 import { createApprovalUri } from '../shared/pairing-protocol'
 import { IPC } from '../shared/ipc-channels'
 import {
@@ -21,10 +28,12 @@ import {
   MAER_XMPP_SERVICE_HOST,
 } from '../shared/service-config'
 import { CredentialStore, WindowsCredentialBackend } from './credential-store'
+import { CoordinatedShutdown } from './coordinated-shutdown'
 import { createDesktopHandlers } from './ipc-handlers'
 import { PairingApiClient } from './pairing-api'
 import { PairingSessionManager } from './pairing-session-manager'
 import { installDenyByDefaultPermissionPolicy } from './permission-policy'
+import { resolveRendererEntry, type RendererEntry } from './runtime-resources'
 import { TrustedIpcMain, TrustedRendererGuard } from './trusted-ipc'
 
 let mainWindow: BrowserWindow | undefined
@@ -43,11 +52,12 @@ function iconPath(): string {
     : join(__dirname, '../../assets/icon.png')
 }
 
-function rendererEntryUrl(): string {
-  if (process.env.ELECTRON_RENDERER_URL) {
-    return new URL(process.env.ELECTRON_RENDERER_URL).href
-  }
-  return pathToFileURL(join(__dirname, '../renderer/index.html')).href
+function rendererEntry(): RendererEntry {
+  return resolveRendererEntry(
+    app.isPackaged,
+    process.env.ELECTRON_RENDERER_URL,
+    join(__dirname, '../renderer/index.html'),
+  )
 }
 
 function pairingManager(): PairingSessionManager {
@@ -75,11 +85,13 @@ interface MainServices {
   pairing: PairingSessionManager
   plugins: MainPluginHost
   ipc: TrustedIpcMain
+  nativeVaultGateway(): NativeVaultGateway | undefined
 }
 
 function registerIpc(guard: TrustedRendererGuard): MainServices {
   const pairing = pairingManager()
   const ipc = new TrustedIpcMain(ipcMain, guard)
+  let nativeVaultGateway: NativeVaultGateway | undefined
   const handlers = createDesktopHandlers({
     appVersion: app.getVersion(),
     deviceName: hostname().slice(0, 80) || 'PC Windows',
@@ -106,6 +118,9 @@ function registerIpc(guard: TrustedRendererGuard): MainServices {
         vaultPath: join(app.getPath('userData'), 'maer-passwords.kdbx'),
         powerMonitor,
         clipboard,
+        publishNativeGateway: (gateway) => {
+          nativeVaultGateway = gateway
+        },
       },
     }),
     createIpcScope: (pluginId) => ipc.createPluginScope(pluginId),
@@ -113,10 +128,15 @@ function registerIpc(guard: TrustedRendererGuard): MainServices {
       console.error(`[plugin:${failure.pluginId}] ${failure.phase}`)
     },
   })
-  return { pairing, plugins, ipc }
+  return {
+    pairing,
+    plugins,
+    ipc,
+    nativeVaultGateway: () => nativeVaultGateway,
+  }
 }
 
-function createWindow(expectedRendererUrl: string, guard: TrustedRendererGuard): BrowserWindow {
+function createWindow(entry: RendererEntry, guard: TrustedRendererGuard): BrowserWindow {
   const window = new BrowserWindow({
     title: 'MAER Chat',
     width: 1280,
@@ -164,10 +184,10 @@ function createWindow(expectedRendererUrl: string, guard: TrustedRendererGuard):
     }
   })
 
-  if (process.env.ELECTRON_RENDERER_URL) {
-    void window.loadURL(expectedRendererUrl)
+  if (entry.source === 'development') {
+    void window.loadURL(entry.url)
   } else {
-    void window.loadFile(join(__dirname, '../renderer/index.html'))
+    void window.loadFile(entry.filePath)
   }
 
   return window
@@ -203,44 +223,91 @@ function createTray(): Tray {
   return result
 }
 
-const gotLock = e2eMode || app.requestSingleInstanceLock()
-if (!gotLock) {
-  app.quit()
-} else {
-  app.on('second-instance', () => {
-    if (!mainWindow) return
-    if (mainWindow.isMinimized()) mainWindow.restore()
-    mainWindow.show()
-    mainWindow.focus()
-  })
+let nativeMessagingLaunch: NativeMessagingRuntimeLaunch | undefined
+let invalidNativeMessagingLaunch = false
+try {
+  nativeMessagingLaunch = detectNativeMessagingRuntimeLaunch(
+    process.argv.slice(1),
+    process.env.LOCALAPPDATA,
+  )
+} catch {
+  invalidNativeMessagingLaunch = true
+}
 
-  void app.whenReady().then(async () => {
-    app.setAppUserModelId('fr.maer.chat.desktop')
-    Menu.setApplicationMenu(null)
-    const expectedRendererUrl = rendererEntryUrl()
-    const guard = new TrustedRendererGuard({
-      expectedUrl: expectedRendererUrl,
-      getWebContents: () => mainWindow?.webContents,
-    })
-    const services = registerIpc(guard)
-    await services.plugins.activateAll()
-    mainWindow = createWindow(expectedRendererUrl, guard)
-    tray = createTray()
-
-    app.on('before-quit', () => {
-      quitting = true
-      void services.pairing.cancelAll()
-      void services.plugins.deactivateAll()
-      services.ipc.dispose()
-    })
-    app.on('activate', () => {
-      if (!mainWindow || mainWindow.isDestroyed()) {
-        mainWindow = createWindow(expectedRendererUrl, guard)
-      } else {
-        mainWindow.show()
+if (invalidNativeMessagingLaunch) {
+  app.exit(1)
+} else if (nativeMessagingLaunch) {
+  void connectNativeMessagingShimTransport(nativeMessagingLaunch.transportToken)
+    .then(async (transport) => {
+      try {
+        await runNativeMessagingHost({
+          input: transport.input,
+          output: transport.output,
+        })
+      } finally {
+        transport.close()
       }
     })
-  })
+    .then(
+      () => app.exit(0),
+      () => app.exit(1),
+    )
+} else {
+  const gotLock = e2eMode || app.requestSingleInstanceLock()
+  if (!gotLock) {
+    app.quit()
+  } else {
+    app.on('second-instance', () => {
+      if (!mainWindow) return
+      if (mainWindow.isMinimized()) mainWindow.restore()
+      mainWindow.show()
+      mainWindow.focus()
+    })
+
+    void app.whenReady().then(async () => {
+      app.setAppUserModelId('fr.maer.chat.desktop')
+      Menu.setApplicationMenu(null)
+      const entry = rendererEntry()
+      const guard = new TrustedRendererGuard({
+        expectedUrl: entry.url,
+        getWebContents: () => mainWindow?.webContents,
+      })
+      const services = registerIpc(guard)
+      await services.plugins.activateAll()
+      const nativeGateway = services.nativeVaultGateway()
+      const nativeVaultServer = nativeGateway
+        ? new NativeVaultPipeServer({ operations: nativeGateway })
+        : undefined
+      if (nativeVaultServer) {
+        try {
+          await nativeVaultServer.start()
+        } catch {
+          console.error('[native-vault] local bridge unavailable')
+        }
+      }
+      mainWindow = createWindow(entry, guard)
+      tray = createTray()
+
+      const shutdown = new CoordinatedShutdown({
+        markQuitting: () => {
+          quitting = true
+        },
+        stopNativeVaultBridge: () => nativeVaultServer?.stop(),
+        cancelPairing: () => services.pairing.cancelAll(),
+        deactivatePlugins: () => services.plugins.deactivateAll().then(() => undefined),
+        disposeIpc: () => services.ipc.dispose(),
+        exit: (code) => app.exit(code),
+      })
+      app.on('before-quit', (event) => shutdown.request(event))
+      app.on('activate', () => {
+        if (!mainWindow || mainWindow.isDestroyed()) {
+          mainWindow = createWindow(entry, guard)
+        } else {
+          mainWindow.show()
+        }
+      })
+    })
+  }
 }
 
 app.on('window-all-closed', () => {

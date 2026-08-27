@@ -3,6 +3,7 @@ dist/
 Release/
 node_modules/
 coverage/
+resources/native-messaging/maer-password-vault-host.exe
 *.log
 .env
 .env.*

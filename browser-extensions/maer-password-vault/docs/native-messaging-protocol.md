@@ -1,7 +1,6 @@
 # Protocole Native Messaging MAER Password Vault v1
 
-Statut : specification implementee cote extension. L'hote Windows
-`fr.maer.password_vault` reste a implementer et a distribuer avec MAER Chat.
+Statut : protocole implemente cote extension et cote hote Windows MAER Chat.
 
 ## Transport et identite
 
@@ -230,6 +229,9 @@ les champs inconnus.
   8 s maximum ; une action utilisateur peut relancer immediatement la connexion ;
 - aucune requete HTTP, WebSocket ou cloud n'est autorisee comme secours.
 
-Le host proxy et le processus MAER Chat doivent utiliser un IPC local authentifie
-et borne. La conception de cet IPC est hors de ce lot et doit faire l'objet d'une
-revue de menace distincte avant livraison.
+Le host proxy et le processus MAER Chat utilisent un pipe local borne a 65 536
+octets avec challenge aleatoire et preuves HMAC-SHA-256 mutuelles. La cle IPC de
+32 octets est stockee uniquement dans le Gestionnaire d'identifiants Windows du
+compte courant. Le proxy echoue ferme avant de lire stdin si le pipe, la cle ou
+la preuve du serveur est indisponible. La conception detaillee et ses limites
+sont documentees dans `../../../docs/NATIVE_MESSAGING_HOST.md`.

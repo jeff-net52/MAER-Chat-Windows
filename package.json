@@ -1,6 +1,6 @@
 {
   "name": "maer-chat-windows",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Client XMPP sécurisé MAER Chat pour Windows",
   "private": true,
   "type": "module",
@@ -11,12 +11,13 @@
   "license": "GPL-3.0-or-later",
   "scripts": {
     "dev": "electron-vite dev",
+    "build:native-host": "node scripts/build-native-host-shim.mjs",
     "test": "vitest run",
     "test:e2e": "node scripts/smoke.mjs",
     "test:visual": "node tests/visual/run.mjs",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
-    "build": "npm run typecheck && npm run test && electron-vite build",
+    "build": "npm run typecheck && npm run test && electron-vite build && node scripts/verify-renderer-assets.mjs",
     "dist": "npm run build && electron-builder --win nsis",
     "dist:dir": "npm run build && electron-builder --win --dir"
   },
@@ -47,12 +48,37 @@
       "output": "dist",
       "buildResources": "assets"
     },
+    "beforePack": "scripts/build-native-host-shim.mjs",
+    "electronFuses": {
+      "runAsNode": false,
+      "enableCookieEncryption": true,
+      "enableNodeOptionsEnvironmentVariable": false,
+      "enableNodeCliInspectArguments": false,
+      "enableEmbeddedAsarIntegrityValidation": true,
+      "onlyLoadAppFromAsar": true
+    },
     "files": [
       "out/**/*",
       "package.json",
       "LICENSE",
       "THIRD_PARTY_NOTICES.md",
       "THIRD_PARTY_LICENSES/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "resources/native-messaging",
+        "to": "native-messaging",
+        "filter": [
+          "install-host.ps1",
+          "uninstall-host.ps1",
+          "maer-password-vault-host.exe",
+          "host-shim/*.cs"
+        ]
+      },
+      {
+        "from": "assets/icon.png",
+        "to": "assets/icon.png"
+      }
     ],
     "asar": true,
     "asarUnpack": [
@@ -76,7 +102,8 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "MAER Chat",
-      "deleteAppDataOnUninstall": false
+      "deleteAppDataOnUninstall": false,
+      "include": "build/installer.nsh"
     }
   },
   "overrides": {

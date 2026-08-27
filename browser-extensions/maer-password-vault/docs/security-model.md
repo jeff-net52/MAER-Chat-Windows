@@ -11,7 +11,8 @@ page non fiable -> script de contenu -> service worker -> Native Messaging -> ho
 ```
 
 La page ne choisit pas l'origine transmise a l'hote. Le service worker la derive
-de `sender.url`/`sender.tab.url`, exige leur egalite et n'accepte que HTTP(S).
+de `sender.url`/`sender.tab.url`, exige leur egalite et n'accepte que HTTPS dans
+les manifestes livres.
 
 ## Secrets
 
@@ -55,10 +56,13 @@ compte cloud, aucune copie locale ni fournisseur alternatif.
 
 ## Limites connues avant production
 
-- l'hote Native Messaging et son IPC authentifie ne font pas partie de ce lot ;
-- l'identifiant signe Chromium n'est pas encore fige ;
+- la cle publique Chromium fige l'identifiant non empaquete, mais aucune cle
+  privee de signature CRX n'est conservee dans le depot ;
+- le validateur de protocole sait reconnaitre HTTP(S), mais les manifestes livres
+  n'autorisent que HTTPS et la politique du coffre refuse aussi toute operation
+  HTTP non chiffree ;
 - les pages internes navigateur, `file:`, cadres cross-origin et contextes non
-  HTTP(S) ne sont volontairement pas pris en charge ;
+  HTTPS ne sont volontairement pas pris en charge ;
 - l'effacement memoire d'une chaine JavaScript reste best-effort ;
 - une page peut observer les valeurs une fois inserees dans ses propres champs,
   comme avec tout gestionnaire de mots de passe.

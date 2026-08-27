@@ -54,6 +54,15 @@ describe('Password Vault Windows key store', () => {
     expect(setSecret).toHaveBeenCalledWith(new Uint8Array(32).fill(0x22))
   })
 
+  it('normalizes a missing Windows Credential Manager entry to undefined', async () => {
+    const backend = new WindowsVaultKeyBackend(() => ({
+      getSecret: async () => null,
+      setSecret: async () => undefined,
+      deleteCredential: async () => false,
+    }))
+    await expect(backend.load()).resolves.toBeUndefined()
+  })
+
   it('creates, stores and verifies exactly 32 random binary bytes', async () => {
     const backend = new MemoryKeyBackend()
     const random = new Uint8Array(32).fill(0x5a)
@@ -75,6 +84,38 @@ describe('Password Vault Windows key store', () => {
 
     await expect(store.load()).rejects.toThrow(/32 octets binaires/i)
     expect(backend.lastLoaded).toEqual(new Uint8Array(31))
+  })
+
+  it('normalizes dense number[] values returned by the Windows keyring binding', async () => {
+    const transferred = new Array<number>(32).fill(0x2a)
+    const backend: VaultKeyBackend = {
+      load: async () => transferred,
+      save: async () => undefined,
+      delete: async () => false,
+    }
+    const store = new VaultKeyStore(backend)
+
+    const loaded = await store.load()
+
+    expect(loaded).toEqual(new Uint8Array(32).fill(0x2a))
+    expect(transferred).toEqual(new Array<number>(32).fill(0))
+    loaded?.fill(0)
+  })
+
+  it('rejects sparse and out-of-range number[] values', async () => {
+    for (const malformed of [
+      new Array<number>(32),
+      [...new Array<number>(31).fill(1), -1],
+    ]) {
+      const backend: VaultKeyBackend = {
+        load: async () => malformed,
+        save: async () => undefined,
+        delete: async () => false,
+      }
+      await expect(new VaultKeyStore(backend).load()).rejects.toThrow(
+        /32 octets binaires/i,
+      )
+    }
   })
 
   it('never overwrites an existing key', async () => {

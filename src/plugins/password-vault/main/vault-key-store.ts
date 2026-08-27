@@ -7,14 +7,14 @@ export const PASSWORD_VAULT_KEYRING_ACCOUNT = 'local-vault-v1'
 
 export interface VaultKeyBackend {
   /** The returned byte array belongs to the caller and may be zeroed. */
-  load(): Promise<Uint8Array | undefined>
+  load(): Promise<Uint8Array | number[] | undefined>
   /** The implementation must copy the value before this promise resolves. */
   save(value: Uint8Array): Promise<void>
   delete(): Promise<boolean>
 }
 
 export interface VaultKeyringEntry {
-  getSecret(): Promise<Uint8Array | undefined>
+  getSecret(): Promise<Uint8Array | number[] | null | undefined>
   setSecret(value: Uint8Array): Promise<void>
   deleteCredential(): Promise<boolean>
 }
@@ -24,12 +24,33 @@ export type VaultKeyringEntryFactory = (
   account: string,
 ) => VaultKeyringEntry
 
+function isDenseByteArray(value: unknown): value is number[] {
+  if (!Array.isArray(value) || value.length !== PASSWORD_VAULT_SECRET_LENGTH) {
+    return false
+  }
+  for (let index = 0; index < value.length; index += 1) {
+    const entry = value[index]
+    if (
+      !Object.hasOwn(value, index) ||
+      !Number.isSafeInteger(entry) ||
+      entry < 0 ||
+      entry > 255
+    ) {
+      return false
+    }
+  }
+  return true
+}
+
 function copyStrictVaultKey(value: unknown, label: string): Uint8Array<ArrayBuffer> {
-  if (!(value instanceof Uint8Array) || value.byteLength !== PASSWORD_VAULT_SECRET_LENGTH) {
+  const validTypedArray =
+    value instanceof Uint8Array && value.byteLength === PASSWORD_VAULT_SECRET_LENGTH
+  const validNumberArray = isDenseByteArray(value)
+  if (!validTypedArray && !validNumberArray) {
     throw new Error(`${label} doit contenir exactement 32 octets binaires.`)
   }
   const copy = new Uint8Array(PASSWORD_VAULT_SECRET_LENGTH)
-  copy.set(value)
+  copy.set(value as Uint8Array | number[])
   return copy
 }
 
@@ -46,8 +67,8 @@ export class WindowsVaultKeyBackend implements VaultKeyBackend {
     )
   }
 
-  load(): Promise<Uint8Array | undefined> {
-    return this.entry.getSecret()
+  async load(): Promise<Uint8Array | number[] | undefined> {
+    return (await this.entry.getSecret()) ?? undefined
   }
 
   save(value: Uint8Array): Promise<void> {

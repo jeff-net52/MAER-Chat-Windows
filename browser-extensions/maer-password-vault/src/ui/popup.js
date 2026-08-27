@@ -70,7 +70,7 @@
       statusDetail.textContent = 'Pret a remplir apres votre clic';
       lockButton.disabled = false;
     } catch (_error) {
-      originLabel.textContent = 'Site HTTP(S) non disponible';
+      originLabel.textContent = 'Site HTTPS non disponible';
       showLocked('Hote MAER absent ou indisponible');
     } finally {
       refreshButton.disabled = false;

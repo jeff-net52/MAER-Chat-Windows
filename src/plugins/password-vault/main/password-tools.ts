@@ -9,9 +9,15 @@ const LOWERCASE = 'abcdefghijkmnopqrstuvwxyz'
 const UPPERCASE = 'ABCDEFGHJKLMNPQRSTUVWXYZ'
 const DIGITS = '23456789'
 const SYMBOLS = '!@#$%&*+-=?_'
-const ALPHABET = `${LOWERCASE}${UPPERCASE}${DIGITS}${SYMBOLS}`
-
 export type SecureRandomIndex = (maximumExclusive: number) => number
+
+export interface PasswordCharacterPolicy {
+  length: number
+  lowercase: boolean
+  uppercase: boolean
+  digits: boolean
+  symbols: boolean
+}
 
 function pick(characters: string, randomIndex: SecureRandomIndex): string {
   const index = randomIndex(characters.length)
@@ -25,20 +31,47 @@ export function generatePassword(
   length: number,
   randomIndex: SecureRandomIndex = (maximum) => randomInt(maximum),
 ): string {
+  return generatePasswordForPolicy(
+    {
+      length,
+      lowercase: true,
+      uppercase: true,
+      digits: true,
+      symbols: true,
+    },
+    randomIndex,
+  )
+}
+
+export function generatePasswordForPolicy(
+  policy: PasswordCharacterPolicy,
+  randomIndex: SecureRandomIndex = (maximum) => randomInt(maximum),
+): string {
   if (
-    !Number.isSafeInteger(length) ||
-    length < PASSWORD_VAULT_MIN_GENERATED_LENGTH ||
-    length > PASSWORD_VAULT_MAX_GENERATED_LENGTH
+    !Number.isSafeInteger(policy.length) ||
+    policy.length < PASSWORD_VAULT_MIN_GENERATED_LENGTH ||
+    policy.length > PASSWORD_VAULT_MAX_GENERATED_LENGTH
   ) {
     throw new Error('La longueur du mot de passe généré est invalide.')
   }
-  const value = [
-    pick(LOWERCASE, randomIndex),
-    pick(UPPERCASE, randomIndex),
-    pick(DIGITS, randomIndex),
-    pick(SYMBOLS, randomIndex),
-  ]
-  while (value.length < length) value.push(pick(ALPHABET, randomIndex))
+  const groups = [
+    [policy.lowercase, LOWERCASE],
+    [policy.uppercase, UPPERCASE],
+    [policy.digits, DIGITS],
+    [policy.symbols, SYMBOLS],
+  ] as const
+  if (groups.some(([enabled]) => typeof enabled !== 'boolean')) {
+    throw new Error('La politique du mot de passe généré est invalide.')
+  }
+  const enabledGroups = groups
+    .filter(([enabled]) => enabled)
+    .map(([, characters]) => characters)
+  if (enabledGroups.length === 0) {
+    throw new Error('La politique du mot de passe doit activer au moins un alphabet.')
+  }
+  const alphabet = enabledGroups.join('')
+  const value = enabledGroups.map((characters) => pick(characters, randomIndex))
+  while (value.length < policy.length) value.push(pick(alphabet, randomIndex))
   for (let index = value.length - 1; index > 0; index -= 1) {
     const swap = randomIndex(index + 1)
     if (!Number.isSafeInteger(swap) || swap < 0 || swap > index) {

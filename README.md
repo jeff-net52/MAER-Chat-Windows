@@ -28,10 +28,12 @@ Client de bureau Windows 10/11 x64 pour les comptes XMPP MAER existants (`@xmpp.
   défaut : tout manifeste, capacité ou contribution inconnu ou incohérent
   empêche l’activation du plugin concerné. Aucun chargement de plugin tiers
   arbitraire n’est pris en charge.
-- Le plugin « MAER Password Vault » est uniquement un placeholder technique :
-  il expose un statut de disponibilité pour valider la plateforme, mais ne
-  stocke, ne génère, n’importe et n’affiche encore aucun mot de passe.
-- **101 tests automatisés** actuellement réussis, complétés par un smoke test
+- Le plugin « MAER Password Vault » fournit un coffre KDBX 4.1 chiffré local,
+  une interface inspirée de Firefox, génération/copie temporaire, verrouillage
+  automatique et extensions Edge/Chrome/Firefox. Le pont Native Messaging reste
+  strictement main-only, authentifie un pipe local et lie chaque révélation à
+  l’origine Web exacte ; aucun secret n’est exposé au preload ou au renderer.
+- La suite de tests automatisés est complétée par un smoke test
   Electron et le harnais de régression visuelle de `tests/visual/`.
 
 Le transport de la connexion classique a été vérifié le 26 août 2026 :

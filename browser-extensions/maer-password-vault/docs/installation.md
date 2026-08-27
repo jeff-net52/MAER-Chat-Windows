@@ -27,19 +27,36 @@ ordonnes et horodates de facon deterministe sont dans `packages/`.
 ## Etat attendu sans hote
 
 Tant que l'hote `fr.maer.password_vault` n'est pas installe, le popup affiche
-*Coffre verrouille* et toute action echoue de facon generique. Cet etat est normal
-et constitue le comportement ferme attendu ; il ne faut pas ajouter de fichier
+*Coffre verrouille* et toute action echoue de facon generique. L'installateur
+MAER Chat enregistre normalement l'hote pour les trois navigateurs dans HKCU.
+Cet etat reste normal si MAER Chat est ferme, si le coffre est verrouille ou si
+l'extension est chargee avant l'application ; il ne faut pas ajouter de fichier
 de test contenant des identifiants.
 
-## Travail restant pour l'integrateur Windows
+## Hote Windows livre avec MAER Chat
 
-1. Implementer le protocole documente dans `native-messaging-protocol.md`.
-2. Fixer et signer l'identifiant de production Chromium.
-3. Installer un manifeste d'hote distinct par famille de navigateur avec une
-   liste d'identites exacte, jamais un joker.
-4. Relier l'hote au coffre MAER par un IPC local authentifie et borne.
-5. Tester l'installation, le verrouillage, la suspension et la desinstallation
-   sur Edge, Chrome et Firefox avant toute publication.
+L'installateur enregistre un petit shim .NET auditable comme hote natif. Il
+calcule le chemin de `MAER Chat.exe` depuis son propre repertoire, sans `PATH`
+ni shell. Deux pipes ephemeres separes remplacent le stdin Electron non fiable ;
+leurs noms aleatoires sont associes a une ACL limitee au SID courant et le shim
+verifie que leur client possede exactement le PID Electron qu'il vient de
+lancer. Le shim exige aussi l'unique preface CRLF Electron puis refuse tout octet
+stdout supplementaire. Le binaire Electron detecte ensuite les arguments
+d'invocation Native Messaging avant la prise du verrou mono-instance.
+L'origine Chromium ou l'identifiant Firefox doit correspondre exactement a
+l'identite figee. Il relaie les trames vers le client MAER Chat par un pipe local
+authentifie par challenge/HMAC ; la cle de 32 octets est conservee uniquement
+dans le Gestionnaire d'identifiants Windows. La source GPL du shim est livree
+avec l'application et son binaire est reconstruit au packaging avec le
+compilateur Windows .NET Framework explicitement localise. Voir
+`../../../docs/NATIVE_MESSAGING_HOST.md`.
+
+L'identifiant Chromium de developpement/production locale est
+`afjfndaggdofghcpakcemfkckhiaplkn`. La cle SPKI publique correspondante est dans
+le manifeste. Sa partie privee n'est ni conservee ni commitee : l'identite reste
+stable en mode non empaquete, mais ce depot ne peut pas produire seul un CRX
+signe. Une diffusion Web Store devra utiliser l'identite attribuee par le store
+ou une cle de signature de release conservee hors depot.
 
 Le present sous-projet ne contient volontairement ni binaire d'hote, ni manifeste
 d'hote installable, ni ecriture registre.
