@@ -16,9 +16,10 @@ Client de bureau Windows 10/11 x64 pour les comptes XMPP MAER existants (`@xmpp.
 - Appels audio/vidéo et partage d’écran par lien de réunion Jitsi aléatoire,
   envoyé dans la conversation puis ouvert dans le navigateur système après
   consentement explicite lors de la première utilisation.
-- Parcours QR préparé côté Windows, mais non opérationnel tant que les
-  composants Android et serveur décrits dans `docs/PAIRING_PROTOCOL_V1.md` ne
-  sont pas implémentés et déployés.
+- Parcours QR implémenté dans les sources Windows, Android et MAER XMPP Server,
+  avec approbation XMPP, jeton OAuth limité et révocation par appareil. Il ne
+  sera déclaré opérationnel qu'après le déploiement du nouveau serveur sur le
+  NAS et un essai de bout en bout avec les clients réellement installés.
 - Moteur XMPP Converse.js 14 : conversations privées et groupes, MAM, HTTP Upload, réponses, corrections, réactions, retraits, accusés, notifications et OMEMO.
 - Secrets d’authentification XMPP enregistrés dans le Gestionnaire
   d’identifiants Windows (`@napi-rs/keyring`).
@@ -42,10 +43,12 @@ WebSocket public en `101 Switching Protocols`, flux XMPP accepté pour
 validée dans le client installé avec le compte mémorisé par l’application,
 sans lire, afficher ni enregistrer son secret dans le dépôt ou les rapports.
 
-L’association QR forme un chantier distinct : extension ejabberd, prise en
-charge Android, tests de sécurité et déploiement. Les fichiers
+Le contrat d'association QR est défini dans `docs/PAIRING_PROTOCOL_V1.md`. Son
+implémentation a passé les tests unitaires croisés Windows, Android et serveur,
+mais le déploiement NAS et la validation réelle restent obligatoires avant de
+présenter la fonction comme livrée. Les fichiers
 `docs/CODEX_ANDROID_LINKED_DEVICES.md` et `docs/CODEX_PROJECT_HANDOFF.md` sont
-des plans de travail conservés pour référence, pas des fonctionnalités livrées.
+des archives de conception conservées pour traçabilité.
 
 ## Développement
 
@@ -72,9 +75,10 @@ emplacement pour la capture.
 npm run dist
 ```
 
-L’installateur NSIS x64 est généré sous `dist/`. La dernière livraison validée est
-`Release/MAER-Chat-Setup-1.1.0-x64.exe` ; voir
-`docs/RELEASE_REPORT_1.1.0.md`.
+L’installateur NSIS x64 est généré sous `dist/`. La candidate locale 1.2.0 a
+été construite et validée à partir des sources actuelles ; voir
+`docs/RELEASE_REPORT_1.2.0.md`. Elle n'est pas une release publique signée :
+les conditions restantes sont détaillées dans `docs/RELEASE_POLICY.md`.
 
 ## Sécurité
 
@@ -89,6 +93,8 @@ L’installateur NSIS x64 est généré sous `dist/`. La dernière livraison val
 - navigation distante interdite ;
 - réunions ouvertes uniquement dans le navigateur système, sans iframe ni
   extension de la politique CSP de l’application ;
+- les neuf fusibles de sécurité Electron sont déclarés explicitement et leur
+  état est contrôlé sur l'exécutable empaqueté ;
 - OAuth QR limité au scope `sasl_auth` ;
 - aucun secret dans le QR, les fichiers applicatifs ou IndexedDB ;
 - mot de passe/jeton transmis au renderer uniquement pendant la connexion XMPP.

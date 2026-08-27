@@ -12,9 +12,10 @@ blocages ci-dessous ne sont pas levés.
 2. **Logo bloquant** : l'auteur, la chaîne de droits et la licence de
    redistribution du logo MAER utilisé par les clients ne sont pas confirmés.
    Ce point est un NO-GO public indépendant de la licence GPL du code.
-3. **Artefact courant absent** : l'ancien installateur 1.1.0 est antérieur au
-   coffre, à OMEMO corrigé et au Native Messaging. Il ne doit pas être republié
-   sous une nouvelle release ni réutilisé avec le même numéro de version.
+3. **Candidate locale uniquement** : l'installateur 1.2.0 actuel intègre le
+   coffre, OMEMO et le Native Messaging et passe les contrôles automatisés,
+   mais il reste une candidate locale non signée. L'ancien installateur 1.1.0
+   ne doit pas être republié ni réutilisé sous un autre numéro de version.
 4. **Validation d'intégration requise** : le build final doit être testé dans
    une VM Windows propre avec Credential Manager, Chrome, Edge et Firefox.
 
@@ -26,9 +27,10 @@ dépôt public.
 
 ## Conditions nécessaires à une release
 
-Une version candidate doit partir d'un commit propre et d'un tag signé. Son
-numéro doit être identique dans le code, l'installateur, les extensions, les
-notes de release et les noms d'artefacts.
+Une version candidate doit partir d'un commit propre et d'un tag signé. Chaque
+composant doit déclarer une version cohérente et la correspondance entre la
+version de l'application, celle des extensions, les notes de release et les
+noms d'artefacts doit être documentée sans ambiguïté.
 
 Les validations minimales sont :
 
