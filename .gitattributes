@@ -1,0 +1,10 @@
+* text=auto eol=lf
+
+*.ico binary
+*.png binary
+*.wasm binary
+*.exe binary
+*.zip binary
+*.tgz binary
+*.kdbx binary
+*.maervault binary

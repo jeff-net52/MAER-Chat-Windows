@@ -29,6 +29,16 @@ function fakeBridge(overrides: Partial<PasswordVaultBridge> = {}): PasswordVault
       copied: true as const,
       clearAfterSeconds: 30,
     })),
+    copyUsername: vi.fn(async () => ({
+      entryId: ENTRY.id,
+      usernameCopied: true as const,
+      clearAfterSeconds: 30,
+    })),
+    reveal: vi.fn(async () => ({ entryId: ENTRY.id, password: 'Revealed-Secret-234' })),
+    openUrl: vi.fn(async () => ({ entryId: ENTRY.id, opened: true as const })),
+    exportBackup: vi.fn(async () => ({ operation: 'export' as const, completed: true, entryCount: 1 })),
+    importBackup: vi.fn(async () => ({ operation: 'import' as const, completed: true, entryCount: 1 })),
+    reset: vi.fn(async () => ({ state: 'uninitialized' as const, entryCount: null })),
     openExtensionFolder: vi.fn(async () => ({
       target: 'folder' as const,
       opened: true as const,

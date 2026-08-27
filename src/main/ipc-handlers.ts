@@ -88,6 +88,8 @@ export function createDesktopHandlers(deps: DesktopHandlerDependencies) {
       const parsed = parseSaveCredentialInput(input)
       if (parsed.remember) {
         await deps.credentials.save(parsed.jid, parsed.credential as DesktopCredential)
+      } else {
+        await deps.credentials.delete(parsed.jid)
       }
     },
 

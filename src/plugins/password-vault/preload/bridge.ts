@@ -6,12 +6,16 @@ import {
   parsePasswordVaultResponse,
   type PasswordVaultAction,
   type PasswordVaultBrowserExtensionOpenResult,
+  type PasswordVaultBackupResult,
   type PasswordVaultCopyResult,
   type PasswordVaultDeleteResult,
   type PasswordVaultEntrySummary,
   type PasswordVaultEntryUpdate,
   type PasswordVaultErrorCode,
   type PasswordVaultGeneratedPassword,
+  type PasswordVaultOpenUrlResult,
+  type PasswordVaultRevealResult,
+  type PasswordVaultUsernameCopyResult,
   type PasswordVaultNewEntry,
   type PasswordVaultRequest,
   type PasswordVaultStatus,
@@ -40,6 +44,12 @@ export interface PasswordVaultBridge {
   delete(entryId: string): Promise<PasswordVaultDeleteResult>
   generate(length?: number): Promise<string>
   copy(entryId: string): Promise<PasswordVaultCopyResult>
+  copyUsername(entryId: string): Promise<PasswordVaultUsernameCopyResult>
+  reveal(entryId: string): Promise<PasswordVaultRevealResult>
+  openUrl(entryId: string): Promise<PasswordVaultOpenUrlResult>
+  exportBackup(passphrase: string): Promise<PasswordVaultBackupResult>
+  importBackup(passphrase: string): Promise<PasswordVaultBackupResult>
+  reset(): Promise<PasswordVaultStatus>
   openExtensionFolder(): Promise<PasswordVaultBrowserExtensionOpenResult>
   openExtensionGuide(): Promise<PasswordVaultBrowserExtensionOpenResult>
 }
@@ -148,6 +158,43 @@ export function createPasswordVaultBridge(
         entryId,
       })
       return (await request(value)).result as PasswordVaultCopyResult
+    },
+    async copyUsername(entryId: string) {
+      const value = parsePasswordVaultRequest({
+        ...base('copy-username', createRequestId()),
+        entryId,
+      })
+      return (await request(value)).result as PasswordVaultUsernameCopyResult
+    },
+    async reveal(entryId: string) {
+      const value = parsePasswordVaultRequest({ ...base('reveal', createRequestId()), entryId })
+      return (await request(value)).result as PasswordVaultRevealResult
+    },
+    async openUrl(entryId: string) {
+      const value = parsePasswordVaultRequest({ ...base('open-url', createRequestId()), entryId })
+      return (await request(value)).result as PasswordVaultOpenUrlResult
+    },
+    async exportBackup(passphrase: string) {
+      const value = parsePasswordVaultRequest({
+        ...base('export-backup', createRequestId()),
+        passphrase,
+      })
+      return (await request(value)).result as PasswordVaultBackupResult
+    },
+    async importBackup(passphrase: string) {
+      const value = parsePasswordVaultRequest({
+        ...base('import-backup', createRequestId()),
+        passphrase,
+        confirm: 'REPLACE',
+      })
+      return (await request(value)).result as PasswordVaultBackupResult
+    },
+    async reset() {
+      const value = parsePasswordVaultRequest({
+        ...base('reset', createRequestId()),
+        confirm: 'RESET',
+      })
+      return (await request(value)).result as PasswordVaultStatus
     },
     async openExtensionFolder() {
       return (await request(simple('open-extension-folder')))

@@ -108,6 +108,24 @@ describe('desktop IPC handlers', () => {
     expect(deps.credentials.save).toHaveBeenCalledWith('alice@xmpp.maer.fr', credential)
   })
 
+  it('purges a previously remembered credential when remember is disabled', async () => {
+    const deps = dependencies()
+    const handlers = createDesktopHandlers(deps)
+
+    await handlers.saveValidatedCredential({
+      jid: 'alice@xmpp.maer.fr',
+      remember: false,
+      credential: {
+        version: 1,
+        authKind: 'password',
+        secret: 'validated-but-not-persisted',
+      },
+    })
+
+    expect(deps.credentials.delete).toHaveBeenCalledWith('alice@xmpp.maer.fr')
+    expect(deps.credentials.save).not.toHaveBeenCalled()
+  })
+
   it('owns QR pairing and validates the session ID crossing IPC', async () => {
     const deps = dependencies()
     const handlers = createDesktopHandlers(deps)

@@ -1,5 +1,18 @@
 import { normalizeAccountJid, normalizeLoginJid } from './jid'
-import { MAER_ACCOUNT_DOMAIN } from './service-config'
+import { MAER_ACCOUNT_DOMAIN, MAER_MEETING_ORIGIN } from './service-config'
+
+export type DesktopMeetingMode = 'audio' | 'video' | 'screen'
+
+export interface DesktopMeetingRequest {
+  url: string
+  mode: DesktopMeetingMode
+  issuedAt: string
+  expiresAt: string
+  room: string
+}
+
+const MEETING_TTL_MS = 2 * 60 * 60 * 1_000
+const MEETING_CLOCK_SKEW_MS = 5 * 60 * 1_000
 
 export interface DesktopCredential {
   version: 1
@@ -113,4 +126,60 @@ export function parseSaveCredentialInput(value: unknown): SaveCredentialInput {
     remember: requiredBoolean(input.remember, 'remember'),
     credential: parseCredential(input.credential),
   }
+}
+
+export function parseMeetingInput(value: unknown): DesktopMeetingRequest {
+  const input = asRecord(value)
+  requireOnlyKeys(input, ['url', 'mode', 'issuedAt', 'expiresAt', 'room'])
+  if (input.mode !== 'audio' && input.mode !== 'video' && input.mode !== 'screen') {
+    throw new Error('Mode de réunion invalide')
+  }
+  if (
+    typeof input.url !== 'string' ||
+    input.url.length > 2_048 ||
+    typeof input.issuedAt !== 'string' ||
+    typeof input.expiresAt !== 'string' ||
+    typeof input.room !== 'string' ||
+    !/^MAER-[A-Za-z0-9]{16,128}$/u.test(input.room)
+  ) {
+    throw new Error('Adresse de réunion invalide')
+  }
+  let url: URL
+  try {
+    url = new URL(input.url)
+  } catch {
+    throw new Error('Adresse de réunion invalide')
+  }
+  const allowed = new URL(MAER_MEETING_ORIGIN)
+  const issued = Date.parse(input.issuedAt)
+  const expires = Date.parse(input.expiresAt)
+  const now = Date.now()
+  if (
+    input.url !== url.toString() ||
+    url.protocol !== 'https:' ||
+    url.origin !== allowed.origin ||
+    url.username ||
+    url.password ||
+    url.search ||
+    url.pathname !== `/${input.room}` ||
+    (input.mode === 'video'
+      ? url.hash !== ''
+      : url.hash !== '#config.startWithVideoMuted=true') ||
+    !Number.isFinite(issued) ||
+    !Number.isFinite(expires) ||
+    new Date(issued).toISOString() !== input.issuedAt ||
+    new Date(expires).toISOString() !== input.expiresAt ||
+    expires - issued !== MEETING_TTL_MS ||
+    now >= expires ||
+    now < issued - MEETING_CLOCK_SKEW_MS
+  ) {
+    throw new Error('Adresse de réunion non autorisée')
+  }
+  return Object.freeze({
+    url: url.toString(),
+    mode: input.mode,
+    issuedAt: input.issuedAt,
+    expiresAt: input.expiresAt,
+    room: input.room,
+  })
 }

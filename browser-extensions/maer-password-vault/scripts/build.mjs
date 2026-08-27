@@ -56,6 +56,8 @@ export async function build() {
     await chmod(join(targetDirectory, 'manifest.json'), 0o644);
     await copyFile(join(rootDirectory, 'NOTICE.txt'), join(targetDirectory, 'NOTICE.txt'));
     await chmod(join(targetDirectory, 'NOTICE.txt'), 0o644);
+    await copyFile(join(rootDirectory, '..', '..', 'LICENSE'), join(targetDirectory, 'LICENSE'));
+    await chmod(join(targetDirectory, 'LICENSE'), 0o644);
 
     const buildMetadata = {
       schema: 1,

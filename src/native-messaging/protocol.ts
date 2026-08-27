@@ -52,6 +52,7 @@ export type NativeVaultSuccessPayload =
   | { state: 'ready' | 'locked'; capabilities: readonly string[] }
   | { entries: readonly NativeVaultCredentialSummary[] }
   | { credentialId: string; username: string; password: string }
+  | { credentialId: string }
   | { password: string }
   | Record<never, never>
 
@@ -407,7 +408,12 @@ function parseSuccessPayload(
       return Object.seal({
         password: boundedString(input.password, NATIVE_VAULT_LIMITS.password),
       })
-    case 'vault.save':
+    case 'vault.save': {
+      exactKeys(input, ['credentialId'], request)
+      return Object.seal({
+        credentialId: boundedString(input.credentialId, NATIVE_VAULT_LIMITS.credentialId),
+      })
+    }
     case 'vault.lock':
       exactKeys(input, [], request)
       return Object.seal({})
@@ -532,8 +538,10 @@ export async function dispatchNativeVaultRequest(
         )
       }
       case 'vault.save':
-        await operations.save({ origin: request.origin, ...request.payload })
-        return success(request, Object.seal({}))
+        return success(
+          request,
+          await operations.save({ origin: request.origin, ...request.payload }),
+        )
       case 'vault.generate': {
         const password = await operations.generate(request.payload.policy)
         return success(

@@ -56,7 +56,7 @@ describe('Password Vault strict contract', () => {
     ).toMatchObject({ action: 'search', query: 'maer' })
   })
 
-  it('rejects unknown, missing and legacy fields', () => {
+  it('rejects unknown and missing fields while accepting the explicit reveal action', () => {
     expect(() =>
       parsePasswordVaultRequest({
         version: 1,
@@ -68,14 +68,14 @@ describe('Password Vault strict contract', () => {
     expect(() =>
       parsePasswordVaultRequest({ version: 1, requestId: REQUEST_ID }),
     ).toThrow(/action/i)
-    expect(() =>
+    expect(
       parsePasswordVaultRequest({
         version: 1,
         requestId: REQUEST_ID,
         action: 'reveal',
         entryId: ENTRY_ID,
       }),
-    ).toThrow(/action/i)
+    ).toMatchObject({ action: 'reveal', entryId: ENTRY_ID })
     expect(() =>
       parsePasswordVaultRequest({
         version: 1,

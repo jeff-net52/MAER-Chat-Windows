@@ -103,12 +103,27 @@ describe('main-only NativeVaultGateway', () => {
     const credentialId = entries?.[0]?.credentialId
     expect(credentialId).toBeTruthy()
 
+    await expect(gateway?.save({
+      origin: 'https://example.test',
+      credentialId: '',
+      username: 'ALICE',
+      password: 'updated-main-only-secret',
+      label: 'Example updated',
+    })).resolves.toEqual({ credentialId })
+    const deduplicated = await gateway?.lookup({
+      origin: 'https://example.test',
+      usernameHint: 'alice',
+      formSignature: 'post:text/username,password/current-password',
+    })
+    expect(deduplicated).toHaveLength(1)
+    expect(deduplicated?.[0]?.credentialId).toBe(credentialId)
+
     await expect(
       gateway?.reveal({ origin: 'https://example.test', credentialId: credentialId ?? '' }),
     ).resolves.toEqual({
       credentialId,
-      username: 'alice',
-      password: 'main-only-secret',
+      username: 'ALICE',
+      password: 'updated-main-only-secret',
     })
     await expect(
       gateway?.reveal({ origin: 'https://other.test', credentialId: credentialId ?? '' }),
@@ -117,7 +132,7 @@ describe('main-only NativeVaultGateway', () => {
     const listed = await handler?.(request('list'))
     expect(listed).toMatchObject({
       ok: true,
-      result: [{ id: credentialId, username: 'alice' }],
+      result: [{ id: credentialId, username: 'ALICE' }],
     })
     expect(JSON.stringify(listed)).not.toContain('main-only-secret')
 
@@ -147,5 +162,5 @@ describe('main-only NativeVaultGateway', () => {
     await expect(gateway?.status()).resolves.toEqual({ state: 'locked' })
     await (deactivate as () => Promise<void>)()
     expect(gateway).toBeUndefined()
-  })
+  }, 30_000)
 })

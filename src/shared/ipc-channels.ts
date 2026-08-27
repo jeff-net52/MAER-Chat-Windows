@@ -7,4 +7,6 @@ export const IPC = {
   beginPairing: 'maer:begin-pairing',
   pollPairing: 'maer:poll-pairing',
   cancelPairing: 'maer:cancel-pairing',
+  openMeeting: 'maer:open-meeting',
+  closeMeeting: 'maer:close-meeting',
 } as const

@@ -2,15 +2,19 @@ import {
   app,
   BrowserWindow,
   clipboard,
+  dialog,
   ipcMain,
   Menu,
   nativeImage,
   powerMonitor,
   shell,
   Tray,
+  type OpenDialogOptions,
+  type SaveDialogOptions,
 } from 'electron'
 import { hostname } from 'node:os'
 import { join } from 'node:path'
+import { readFile, stat, writeFile } from 'node:fs/promises'
 import { MainPluginHost } from '../plugins/core/main/plugin-host'
 import { createFirstPartyMainPlugins } from '../plugins/main-registry'
 import type { NativeVaultGateway } from '../plugins/password-vault/main/native-vault-gateway'
@@ -31,11 +35,14 @@ import { CredentialStore, WindowsCredentialBackend } from './credential-store'
 import { createBrowserExtensionResourceOpener } from './browser-extension-resources'
 import { CoordinatedShutdown } from './coordinated-shutdown'
 import { createDesktopHandlers } from './ipc-handlers'
+import { assertGenericExternalUrlAllowed, isReservedMeetingOrigin } from './external-url-policy'
 import { PairingApiClient } from './pairing-api'
 import { PairingSessionManager } from './pairing-session-manager'
 import { installDenyByDefaultPermissionPolicy } from './permission-policy'
+import { MeetingWindowManager } from './meeting-window'
 import { resolveRendererEntry, type RendererEntry } from './runtime-resources'
 import { TrustedIpcMain, TrustedRendererGuard } from './trusted-ipc'
+import { hideMainWindowOnClose, revealMainWindow } from './window-lifecycle'
 
 let mainWindow: BrowserWindow | undefined
 let tray: Tray | undefined
@@ -89,7 +96,10 @@ interface MainServices {
   nativeVaultGateway(): NativeVaultGateway | undefined
 }
 
-function registerIpc(guard: TrustedRendererGuard): MainServices {
+function registerIpc(
+  guard: TrustedRendererGuard,
+  meetings: MeetingWindowManager,
+): MainServices {
   const pairing = pairingManager()
   const ipc = new TrustedIpcMain(ipcMain, guard)
   let nativeVaultGateway: NativeVaultGateway | undefined
@@ -121,6 +131,8 @@ function registerIpc(guard: TrustedRendererGuard): MainServices {
   ipc.handle(IPC.beginPairing, () => handlers.beginPairing())
   ipc.handle(IPC.pollPairing, (input: unknown) => handlers.pollPairing(input))
   ipc.handle(IPC.cancelPairing, (input: unknown) => handlers.cancelPairing(input))
+  ipc.handle(IPC.openMeeting, (input: unknown) => meetings.open(input))
+  ipc.handle(IPC.closeMeeting, () => meetings.close())
 
   const plugins = new MainPluginHost({
     appVersion: app.getVersion(),
@@ -130,6 +142,60 @@ function registerIpc(guard: TrustedRendererGuard): MainServices {
         powerMonitor,
         clipboard,
         browserExtensions,
+        async confirmReveal() {
+          const options = {
+            type: 'warning' as const,
+            title: 'Afficher un mot de passe',
+            message: 'Afficher ce mot de passe dans MAER Chat pendant 15 secondes ?',
+            detail: 'Vérifiez que personne ne peut voir votre écran. Le mot de passe ne sera pas copié automatiquement.',
+            buttons: ['Refuser', 'Afficher'],
+            defaultId: 0,
+            cancelId: 0,
+            noLink: true,
+          }
+          const result = mainWindow
+            ? await dialog.showMessageBox(mainWindow, options)
+            : await dialog.showMessageBox(options)
+          return result.response === 1
+        },
+        backupFiles: {
+          async save(data) {
+            const options: SaveDialogOptions = {
+              title: 'Sauvegarder le coffre MAER',
+              defaultPath: 'coffre-maer.maervault',
+              filters: [{ name: 'Sauvegarde chiffrée MAER', extensions: ['maervault'] }],
+              properties: ['createDirectory', 'showOverwriteConfirmation'],
+            }
+            const result = mainWindow
+              ? await dialog.showSaveDialog(mainWindow, options)
+              : await dialog.showSaveDialog(options)
+            if (result.canceled || !result.filePath) return false
+            await writeFile(result.filePath, data, { mode: 0o600, flag: 'w' })
+            return true
+          },
+          async load() {
+            const options: OpenDialogOptions = {
+              title: 'Restaurer une sauvegarde du coffre MAER',
+              filters: [{ name: 'Sauvegarde chiffrée MAER', extensions: ['maervault'] }],
+              properties: ['openFile'],
+            }
+            const result = mainWindow
+              ? await dialog.showOpenDialog(mainWindow, options)
+              : await dialog.showOpenDialog(options)
+            const filePath = result.filePaths[0]
+            if (result.canceled || !filePath) return undefined
+            const fileStats = await stat(filePath)
+            if (!fileStats.isFile() || fileStats.size > 20 * 1024 * 1024) {
+              throw new Error('Invalid MAER vault backup file')
+            }
+            return new Uint8Array(await readFile(filePath))
+          },
+        },
+        externalResources: {
+          async openUrl(url) {
+            await shell.openExternal(assertGenericExternalUrlAllowed(url).toString())
+          },
+        },
         publishNativeGateway: (gateway) => {
           nativeVaultGateway = gateway
         },
@@ -173,10 +239,12 @@ function createWindow(entry: RendererEntry, guard: TrustedRendererGuard): Browse
 
   window.webContents.setWindowOpenHandler(({ url }) => {
     try {
-      const target = new URL(url)
-      if (target.protocol === 'https:' || target.protocol === 'mailto:') {
-        void shell.openExternal(url)
+      if (isReservedMeetingOrigin(url)) {
+        // A meeting URL is accepted only through the renderer's validated
+        // MAER-CALL/1 flow and MeetingWindowManager IPC, never generically.
+        return { action: 'deny' }
       }
+      void shell.openExternal(assertGenericExternalUrlAllowed(url).toString())
     } catch {
       // Malformed links remain blocked.
     }
@@ -190,10 +258,7 @@ function createWindow(entry: RendererEntry, guard: TrustedRendererGuard): Browse
 
   window.once('ready-to-show', () => window.show())
   window.on('close', (event) => {
-    if (!quitting) {
-      event.preventDefault()
-      window.hide()
-    }
+    hideMainWindowOnClose(window, event, quitting)
   })
 
   if (entry.source === 'development') {
@@ -213,10 +278,7 @@ function createTray(): Tray {
     Menu.buildFromTemplate([
       {
         label: 'Ouvrir MAER Chat',
-        click: () => {
-          mainWindow?.show()
-          mainWindow?.focus()
-        },
+        click: () => { revealMainWindow(mainWindow) },
       },
       { type: 'separator' },
       {
@@ -228,10 +290,8 @@ function createTray(): Tray {
       },
     ]),
   )
-  result.on('double-click', () => {
-    mainWindow?.show()
-    mainWindow?.focus()
-  })
+  result.on('click', () => { revealMainWindow(mainWindow) })
+  result.on('double-click', () => { revealMainWindow(mainWindow) })
   return result
 }
 
@@ -270,10 +330,7 @@ if (invalidNativeMessagingLaunch) {
     app.quit()
   } else {
     app.on('second-instance', () => {
-      if (!mainWindow) return
-      if (mainWindow.isMinimized()) mainWindow.restore()
-      mainWindow.show()
-      mainWindow.focus()
+      revealMainWindow(mainWindow)
     })
 
     void app.whenReady().then(async () => {
@@ -284,7 +341,8 @@ if (invalidNativeMessagingLaunch) {
         expectedUrl: entry.url,
         getWebContents: () => mainWindow?.webContents,
       })
-      const services = registerIpc(guard)
+      const meetings = new MeetingWindowManager(() => mainWindow)
+      const services = registerIpc(guard, meetings)
       await services.plugins.activateAll()
       const nativeGateway = services.nativeVaultGateway()
       const nativeVaultServer = nativeGateway
@@ -303,6 +361,7 @@ if (invalidNativeMessagingLaunch) {
       const shutdown = new CoordinatedShutdown({
         markQuitting: () => {
           quitting = true
+          void meetings.close()
         },
         stopNativeVaultBridge: () => nativeVaultServer?.stop(),
         cancelPairing: () => services.pairing.cancelAll(),
@@ -315,7 +374,7 @@ if (invalidNativeMessagingLaunch) {
         if (!mainWindow || mainWindow.isDestroyed()) {
           mainWindow = createWindow(entry, guard)
         } else {
-          mainWindow.show()
+          revealMainWindow(mainWindow)
         }
       })
     })

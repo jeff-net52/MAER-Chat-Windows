@@ -12,6 +12,12 @@ export const PASSWORD_VAULT_ACTIONS = [
   'delete',
   'generate',
   'copy',
+  'copy-username',
+  'reveal',
+  'open-url',
+  'export-backup',
+  'import-backup',
+  'reset',
   'open-extension-folder',
   'open-extension-guide',
 ] as const
@@ -31,6 +37,7 @@ export type PasswordVaultErrorCode =
   | 'recovery-required'
   | 'storage-unavailable'
   | 'corrupt-vault'
+  | 'cancelled'
   | 'internal'
 
 export interface PasswordVaultStatus {
@@ -95,12 +102,25 @@ export type PasswordVaultRequest =
       entry: PasswordVaultEntryUpdate
     })
   | (PasswordVaultRequestBase & {
-      action: 'delete' | 'copy'
+      action: 'delete' | 'copy' | 'copy-username' | 'reveal' | 'open-url'
       entryId: string
     })
   | (PasswordVaultRequestBase & {
       action: 'generate'
       length: number
+    })
+  | (PasswordVaultRequestBase & {
+      action: 'export-backup'
+      passphrase: string
+    })
+  | (PasswordVaultRequestBase & {
+      action: 'import-backup'
+      passphrase: string
+      confirm: 'REPLACE'
+    })
+  | (PasswordVaultRequestBase & {
+      action: 'reset'
+      confirm: 'RESET'
     })
 
 export interface PasswordVaultDeleteResult {
@@ -123,6 +143,28 @@ export interface PasswordVaultBrowserExtensionOpenResult {
   opened: true
 }
 
+export interface PasswordVaultUsernameCopyResult {
+  entryId: string
+  usernameCopied: true
+  clearAfterSeconds: number
+}
+
+export interface PasswordVaultRevealResult {
+  entryId: string
+  password: string
+}
+
+export interface PasswordVaultOpenUrlResult {
+  entryId: string
+  opened: true
+}
+
+export interface PasswordVaultBackupResult {
+  operation: 'export' | 'import'
+  completed: boolean
+  entryCount: number
+}
+
 export type PasswordVaultSuccessResult =
   | PasswordVaultStatus
   | PasswordVaultEntrySummary
@@ -131,6 +173,10 @@ export type PasswordVaultSuccessResult =
   | PasswordVaultGeneratedPassword
   | PasswordVaultCopyResult
   | PasswordVaultBrowserExtensionOpenResult
+  | PasswordVaultUsernameCopyResult
+  | PasswordVaultRevealResult
+  | PasswordVaultOpenUrlResult
+  | PasswordVaultBackupResult
 
 export interface PasswordVaultSuccessResponse {
   version: typeof PASSWORD_VAULT_PROTOCOL_VERSION
@@ -174,6 +220,7 @@ const ERROR_CODES = new Set<unknown>([
   'recovery-required',
   'storage-unavailable',
   'corrupt-vault',
+  'cancelled',
   'internal',
 ])
 const ACTIONS = new Set<unknown>(PASSWORD_VAULT_ACTIONS)
@@ -255,6 +302,14 @@ function httpsUrl(value: unknown): string {
 
 function password(value: unknown): string {
   return boundedString(value, 'Le mot de passe', 4096)
+}
+
+function backupPassphrase(value: unknown): string {
+  const parsed = boundedString(value, 'La phrase secrète', 1024)
+  if (parsed.length < 12) {
+    throw new Error('La phrase secrète doit contenir au moins 12 caractères.')
+  }
+  return parsed
 }
 
 function isoDate(value: unknown): string {
@@ -392,11 +447,25 @@ export function parsePasswordVaultRequest(value: unknown): PasswordVaultRequest 
       return Object.freeze({ ...base, action: 'update', entry: parseEntryUpdate(input.entry) })
     case 'delete':
     case 'copy':
+    case 'copy-username':
+    case 'reveal':
+    case 'open-url':
       exactKeys(input, ['version', 'requestId', 'action', 'entryId'], 'La requête du coffre')
       return Object.freeze({ ...base, action: input.action, entryId: entryId(input.entryId) })
     case 'generate':
       exactKeys(input, ['version', 'requestId', 'action', 'length'], 'La requête du coffre')
       return Object.freeze({ ...base, action: 'generate', length: generatedLength(input.length) })
+    case 'export-backup':
+      exactKeys(input, ['version', 'requestId', 'action', 'passphrase'], 'La requête du coffre')
+      return Object.freeze({ ...base, action: 'export-backup', passphrase: backupPassphrase(input.passphrase) })
+    case 'import-backup':
+      exactKeys(input, ['version', 'requestId', 'action', 'passphrase', 'confirm'], 'La requête du coffre')
+      if (input.confirm !== 'REPLACE') throw new Error('La confirmation d’import est invalide.')
+      return Object.freeze({ ...base, action: 'import-backup', passphrase: backupPassphrase(input.passphrase), confirm: 'REPLACE' as const })
+    case 'reset':
+      exactKeys(input, ['version', 'requestId', 'action', 'confirm'], 'La requête du coffre')
+      if (input.confirm !== 'RESET') throw new Error('La confirmation de réinitialisation est invalide.')
+      return Object.freeze({ ...base, action: 'reset', confirm: 'RESET' as const })
     default:
       throw new Error("L’action du coffre est invalide.")
   }
@@ -480,6 +549,50 @@ export function parsePasswordVaultResponse(value: unknown): PasswordVaultRespons
       })
       break
     }
+    case 'copy-username': {
+      const copied = record(input.result, "La copie du nom d’utilisateur")
+      exactKeys(copied, ['entryId', 'usernameCopied', 'clearAfterSeconds'], "La copie du nom d’utilisateur")
+      if (copied.usernameCopied !== true || copied.clearAfterSeconds !== PASSWORD_VAULT_CLIPBOARD_CLEAR_SECONDS) {
+        throw new Error("La copie du nom d’utilisateur est invalide.")
+      }
+      result = Object.freeze({
+        entryId: entryId(copied.entryId),
+        usernameCopied: true as const,
+        clearAfterSeconds: PASSWORD_VAULT_CLIPBOARD_CLEAR_SECONDS,
+      })
+      break
+    }
+    case 'reveal': {
+      const revealed = record(input.result, 'La révélation du mot de passe')
+      exactKeys(revealed, ['entryId', 'password'], 'La révélation du mot de passe')
+      result = Object.freeze({ entryId: entryId(revealed.entryId), password: password(revealed.password) })
+      break
+    }
+    case 'open-url': {
+      const opened = record(input.result, "L’ouverture de l’adresse")
+      exactKeys(opened, ['entryId', 'opened'], "L’ouverture de l’adresse")
+      if (opened.opened !== true) throw new Error("L’ouverture de l’adresse est invalide.")
+      result = Object.freeze({ entryId: entryId(opened.entryId), opened: true as const })
+      break
+    }
+    case 'export-backup':
+    case 'import-backup': {
+      const backup = record(input.result, 'Le résultat de la sauvegarde')
+      exactKeys(backup, ['operation', 'completed', 'entryCount'], 'Le résultat de la sauvegarde')
+      const expected = input.action === 'export-backup' ? 'export' : 'import'
+      if (
+        backup.operation !== expected ||
+        typeof backup.completed !== 'boolean' ||
+        !Number.isSafeInteger(backup.entryCount) ||
+        (backup.entryCount as number) < 0 ||
+        (backup.entryCount as number) > 10_000
+      ) throw new Error('Le résultat de la sauvegarde est invalide.')
+      result = Object.freeze({ operation: expected, completed: backup.completed, entryCount: backup.entryCount as number })
+      break
+    }
+    case 'reset':
+      result = parseStatus(input.result)
+      break
     case 'open-extension-folder':
     case 'open-extension-guide': {
       const opened = record(input.result, "L’ouverture de l’extension navigateur")

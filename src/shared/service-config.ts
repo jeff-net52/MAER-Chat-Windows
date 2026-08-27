@@ -1,5 +1,6 @@
 export const MAER_ACCOUNT_DOMAIN = 'xmpp.maer.fr'
 export const MAER_XMPP_SERVICE_HOST = 'xmpp.maer.fr'
+export const MAER_MEETING_ORIGIN = 'https://meet.jit.si'
 
 export const MAER_SERVICE_ENDPOINTS = Object.freeze({
   domain: MAER_ACCOUNT_DOMAIN,

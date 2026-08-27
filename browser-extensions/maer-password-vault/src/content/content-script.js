@@ -83,7 +83,7 @@
   const panel = document.createElement('section');
   panel.className = 'panel';
   panel.setAttribute('role', 'dialog');
-  panel.setAttribute('aria-label', 'Coffre de mots de passe MAER');
+  panel.setAttribute('aria-modal', 'false');
 
   const header = document.createElement('header');
   header.className = 'header';
@@ -94,7 +94,9 @@
   heading.className = 'heading';
   const title = document.createElement('p');
   title.className = 'title';
+  title.id = 'maer-vault-panel-title';
   title.textContent = 'Coffre MAER';
+  panel.setAttribute('aria-labelledby', title.id);
   const subtitle = document.createElement('p');
   subtitle.className = 'subtitle';
   const closeButton = document.createElement('button');
@@ -120,14 +122,14 @@
   const generateButton = document.createElement('button');
   generateButton.className = 'action';
   generateButton.type = 'button';
-  generateButton.textContent = 'Generer';
+  generateButton.textContent = 'Générer';
   const saveButton = document.createElement('button');
   saveButton.className = 'action primary';
   saveButton.type = 'button';
   saveButton.textContent = 'Enregistrer';
   const privacy = document.createElement('p');
   privacy.className = 'privacy';
-  privacy.textContent = 'Aucun secret conserve par l extension';
+  privacy.textContent = 'Aucun secret conservé par l’extension';
   actions.append(generateButton, saveButton);
   body.append(state, entries, actions, privacy);
   panel.append(header, body);
@@ -155,6 +157,19 @@
   let transientCandidate = null;
   let candidateTimer = null;
   let toastTimer = null;
+  let selectedCredentialId = '';
+  let lastProposedForm = null;
+  let lastProposalAt = 0;
+
+  function setPanelOpen(open, restoreFocus) {
+    panel.dataset.open = open ? 'true' : 'false';
+    launcher.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (open) {
+      closeButton.focus();
+    } else if (restoreFocus && launcher.style.display !== 'none') {
+      launcher.focus();
+    }
+  }
 
   function isPasswordField(value) {
     return value instanceof HTMLInputElement && value.type === 'password' && !value.disabled && !value.readOnly;
@@ -195,6 +210,7 @@
     }
     const usernameField = usernameFieldFor(passwordField);
     return {
+      credentialId: selectedCredentialId,
       username: usernameField ? String(usernameField.value).slice(0, 320) : '',
       password: String(passwordField.value).slice(0, 4096),
       label: String(document.title || location.hostname).slice(0, 256)
@@ -207,6 +223,7 @@
       candidateTimer = null;
     }
     if (transientCandidate) {
+      transientCandidate.credentialId = '';
       transientCandidate.username = '';
       transientCandidate.password = '';
       transientCandidate.label = '';
@@ -290,7 +307,7 @@
     if (!activePassword || !activePassword.isConnected) {
       return;
     }
-    setState('warning', 'Ouverture securisee...');
+    setState('warning', 'Ouverture sécurisée…');
     try {
       const response = await sendAction('vault.reveal', { credentialId: entry.credentialId });
       if (!response || !response.ok || !response.payload || typeof response.payload.password !== 'string') {
@@ -298,6 +315,7 @@
       }
       let password = response.payload.password;
       let username = typeof response.payload.username === 'string' ? response.payload.username : '';
+      selectedCredentialId = entry.credentialId;
       const targetPassword = activePassword;
       const targetUsername = usernameFieldFor(targetPassword);
       if (targetUsername && username) {
@@ -308,10 +326,10 @@
       username = '';
       response.payload.password = '';
       response.payload.username = '';
-      panel.dataset.open = 'false';
+      setPanelOpen(false, false);
       showToast('Identifiants remplis par MAER', false);
     } catch (_error) {
-      setState('locked', 'Coffre indisponible ou verrouille');
+      setState('locked', 'Coffre indisponible ou verrouillé');
     }
   }
 
@@ -361,18 +379,18 @@
       if (!response || !response.ok || !response.payload || !Array.isArray(response.payload.entries)) {
         throw new Error('vault locked');
       }
-      setState('ready', 'Coffre deverrouille');
+      setState('ready', 'Coffre déverrouillé');
       renderEntries(response.payload.entries);
     } catch (_error) {
-      setState('locked', 'Coffre indisponible ou verrouille');
-      addEmpty('Deverrouillez le coffre dans MAER Chat');
+      setState('locked', 'Coffre indisponible ou verrouillé');
+      addEmpty('Déverrouillez le coffre dans MAER Chat');
     }
   }
 
   function positionInterface() {
     if (!activePassword || !activePassword.isConnected) {
       launcher.style.display = 'none';
-      panel.dataset.open = 'false';
+      setPanelOpen(false, false);
       return;
     }
     const rectangle = activePassword.getBoundingClientRect();
@@ -400,7 +418,7 @@
       return;
     }
     generateButton.disabled = true;
-    setState('warning', 'Generation securisee...');
+    setState('warning', 'Génération sécurisée…');
     try {
       const response = await sendAction('vault.generate', {
         policy: { length: 20, lowercase: true, uppercase: true, digits: true, symbols: true }
@@ -413,9 +431,9 @@
       password = '';
       response.payload.password = '';
       launcher.dataset.hasValue = 'true';
-      setState('ready', 'Mot de passe genere et insere');
+      setState('ready', 'Mot de passe généré et inséré');
     } catch (_error) {
-      setState('locked', 'Coffre indisponible ou verrouille');
+      setState('locked', 'Coffre indisponible ou verrouillé');
     } finally {
       generateButton.disabled = false;
     }
@@ -424,7 +442,7 @@
   async function saveCredentials(candidateOverride) {
     const candidate = candidateOverride || currentCredentials();
     if (!candidate || !candidate.password) {
-      setState('warning', 'Saisissez d abord un mot de passe');
+      setState('warning', 'Saisissez d’abord un mot de passe');
       return;
     }
     saveButton.disabled = true;
@@ -433,16 +451,20 @@
       if (!response || !response.ok) {
         throw new Error('vault locked');
       }
-      setState('ready', 'Identifiants enregistres');
+      if (response.payload && typeof response.payload.credentialId === 'string') {
+        selectedCredentialId = response.payload.credentialId;
+      }
+      setState('ready', 'Identifiants enregistrés');
       hideToast();
-      showToast('Identifiants enregistres dans le coffre MAER', false);
+      showToast('Identifiants enregistrés dans le coffre MAER', false);
     } catch (_error) {
-      setState('locked', 'Coffre indisponible ou verrouille');
-      showToast('Enregistrement impossible - coffre verrouille', false);
+      setState('locked', 'Coffre indisponible ou verrouillé');
+      showToast('Enregistrement impossible — coffre verrouillé', false);
     } finally {
       candidate.username = '';
       candidate.password = '';
       candidate.label = '';
+      candidate.credentialId = '';
       if (candidate === transientCandidate) {
         transientCandidate = null;
       }
@@ -451,6 +473,12 @@
   }
 
   function proposeSave(form) {
+    const now = Date.now();
+    if (form === lastProposedForm && now - lastProposalAt < 750) {
+      return;
+    }
+    lastProposedForm = form;
+    lastProposalAt = now;
     clearCandidate();
     transientCandidate = currentCredentials(form);
     if (!transientCandidate) {
@@ -462,15 +490,17 @@
 
   launcher.addEventListener('pointerdown', (event) => event.preventDefault());
   launcher.addEventListener('click', () => {
-    panel.dataset.open = panel.dataset.open === 'true' ? 'false' : 'true';
+    const opening = panel.dataset.open !== 'true';
+    setPanelOpen(opening, !opening);
     subtitle.textContent = location.hostname;
     saveButton.disabled = !currentCredentials();
     positionInterface();
-    if (panel.dataset.open === 'true') {
+    if (opening) {
       lookup();
     }
   });
-  closeButton.addEventListener('click', () => { panel.dataset.open = 'false'; });
+  launcher.setAttribute('aria-expanded', 'false');
+  closeButton.addEventListener('click', () => { setPanelOpen(false, true); });
   generateButton.addEventListener('click', generatePassword);
   saveButton.addEventListener('click', () => saveCredentials(null));
   toastAction.addEventListener('click', () => {
@@ -485,6 +515,9 @@
 
   document.addEventListener('focusin', (event) => {
     if (isPasswordField(event.target)) {
+      if (activePassword !== event.target) {
+        selectedCredentialId = '';
+      }
       activePassword = event.target;
       positionInterface();
     }
@@ -496,9 +529,33 @@
     }
   }, true);
   document.addEventListener('submit', (event) => proposeSave(event.target), true);
+  document.addEventListener('click', (event) => {
+    const action = event.target instanceof Element
+      ? event.target.closest('button, input[type="submit"], [role="button"]')
+      : null;
+    if (!action || !activePassword || !activePassword.value) {
+      return;
+    }
+    const form = containingForm(activePassword);
+    const label = String(action.textContent || action.getAttribute('aria-label') || '').toLocaleLowerCase('fr');
+    if ((form && form.contains(action)) || /connexion|connecter|identifier|valider|envoyer|continuer/.test(label)) {
+      proposeSave(form);
+    }
+  }, true);
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && panel.dataset.open === 'true') {
+      event.preventDefault();
+      event.stopPropagation();
+      setPanelOpen(false, true);
+      return;
+    }
+    if (event.key === 'Enter' && activePassword && activePassword.value) {
+      proposeSave(containingForm(activePassword));
+    }
+  }, true);
   document.addEventListener('pointerdown', (event) => {
     if (panel.dataset.open === 'true' && !host.contains(event.target) && event.target !== activePassword) {
-      panel.dataset.open = 'false';
+      setPanelOpen(false, false);
     }
   }, true);
   root.addEventListener('resize', positionInterface, { passive: true });
@@ -507,7 +564,7 @@
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
       clearCandidate();
-      panel.dataset.open = 'false';
+      setPanelOpen(false, false);
     }
   });
 
@@ -515,7 +572,7 @@
     if (activePassword && !activePassword.isConnected) {
       activePassword = null;
       launcher.style.display = 'none';
-      panel.dataset.open = 'false';
+      setPanelOpen(false, false);
     }
   });
   observer.observe(document.documentElement, { childList: true, subtree: true });

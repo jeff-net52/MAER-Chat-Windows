@@ -46,6 +46,9 @@ test('user gestures gate lookup, reveal, generate and save', () => {
   assert.match(content, /saveButton\.addEventListener\('click'/);
   assert.match(content, /submit'[\s\S]*?proposeSave/);
   assert.doesNotMatch(content, /DOMContentLoaded[\s\S]*?lookup\(/);
+  assert.match(content, /credentialId:\s*selectedCredentialId/);
+  assert.match(content, /response\.payload\.credentialId[\s\S]*?selectedCredentialId\s*=/);
+  assert.match(content, /event\.key === 'Escape'[\s\S]*?setPanelOpen\(false, true\)/);
 });
 
 test('the only external bridge is the exact native host', () => {

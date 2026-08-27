@@ -54,6 +54,7 @@ export class PasswordVaultPanel {
   private searchTimer: ReturnType<typeof setTimeout> | undefined
   private requestSequence = 0
   private disposed = false
+  private revealTimer: ReturnType<typeof setTimeout> | undefined
 
   constructor(
     private readonly root: HTMLElement,
@@ -74,7 +75,9 @@ export class PasswordVaultPanel {
     if (this.disposed) return
     this.disposed = true
     if (this.searchTimer) clearTimeout(this.searchTimer)
+    if (this.revealTimer) clearTimeout(this.revealTimer)
     this.searchTimer = undefined
+    this.revealTimer = undefined
     this.requestSequence += 1
     this.root.removeEventListener('click', this.onClick)
     this.root.removeEventListener('input', this.onInput)
@@ -124,7 +127,13 @@ export class PasswordVaultPanel {
       heading.textContent = 'Récupération nécessaire'
       description.textContent =
         'Le fichier et la clé Windows ne correspondent plus. Aucune donnée ne sera écrasée automatiquement.'
-      section.append(icon, heading, description)
+      section.append(
+        icon,
+        heading,
+        description,
+        button('Importer une sauvegarde chiffrée', 'import-backup', 'maer-vault-primary'),
+        button('Réinitialiser le coffre vide', 'reset', 'maer-vault-danger'),
+      )
     } else {
       heading.textContent = 'Coffre verrouillé'
       description.textContent =
@@ -158,7 +167,12 @@ export class PasswordVaultPanel {
     count.dataset.vaultCount = ''
     count.textContent = `${status.entryCount ?? 0} mot${status.entryCount === 1 ? '' : 's'} de passe`
     const lock = button('Verrouiller', 'lock', 'maer-vault-link')
-    toolbar.append(count, lock)
+    toolbar.append(
+      count,
+      button('Sauvegarder', 'export-backup', 'maer-vault-link'),
+      button('Restaurer', 'import-backup', 'maer-vault-link'),
+      lock,
+    )
 
     const searchRow = document.createElement('div')
     searchRow.className = 'maer-vault-search-row'
@@ -235,6 +249,8 @@ export class PasswordVaultPanel {
   }
 
   private renderDetail(): void {
+    if (this.revealTimer) clearTimeout(this.revealTimer)
+    this.revealTimer = undefined
     const detail = this.root.querySelector<HTMLElement>('[data-vault-detail]')
     if (!detail) return
     detail.replaceChildren()
@@ -272,11 +288,56 @@ export class PasswordVaultPanel {
     const actions = document.createElement('div')
     actions.className = 'maer-vault-detail-actions'
     const copy = button('Copier le mot de passe', 'copy', 'maer-vault-primary')
+    const copyUsername = button("Copier le nom d’utilisateur", 'copy-username', 'maer-vault-secondary')
+    const reveal = button('Afficher le mot de passe', 'reveal', 'maer-vault-secondary')
+    const openUrl = button('Ouvrir le site', 'open-url', 'maer-vault-secondary')
     const edit = button('Modifier', 'edit', 'maer-vault-secondary')
     const remove = button('Supprimer', 'delete', 'maer-vault-danger')
-    for (const action of [copy, edit, remove]) action.dataset.entryId = entry.id
-    actions.append(copy, edit, remove)
+    for (const action of [copy, copyUsername, reveal, openUrl, edit, remove]) {
+      action.dataset.entryId = entry.id
+    }
+    actions.append(copy, copyUsername, reveal, openUrl, edit, remove)
     detail.append(heading, facts, actions)
+  }
+
+  private renderBackupForm(mode: 'export' | 'import'): void {
+    wipeSecretInputs(this.root)
+    const section = document.createElement('section')
+    section.className = 'maer-vault-state maer-vault-backup-state'
+    const heading = document.createElement('h3')
+    heading.textContent = mode === 'export' ? 'Sauvegarder le coffre' : 'Restaurer le coffre'
+    const description = document.createElement('p')
+    description.textContent = mode === 'export'
+      ? 'La sauvegarde est chiffrée avec une phrase secrète indépendante de Windows. Conservez-la en lieu sûr : MAER ne peut pas la récupérer.'
+      : 'La restauration remplace entièrement le coffre local actuel. Cette opération est irréversible.'
+    const form = document.createElement('form')
+    form.className = 'maer-vault-form'
+    form.dataset.vaultForm = mode === 'export' ? 'backup-export' : 'backup-import'
+    form.append(field('Phrase secrète (12 caractères minimum)', 'passphrase', '', {
+      type: 'password',
+      required: true,
+      autocomplete: 'new-password',
+      maximum: 1024,
+    }))
+    if (mode === 'export') {
+      form.append(field('Confirmer la phrase secrète', 'confirmation', '', {
+        type: 'password',
+        required: true,
+        autocomplete: 'new-password',
+        maximum: 1024,
+      }))
+    }
+    const actions = document.createElement('div')
+    actions.className = 'maer-vault-form-actions'
+    const submit = document.createElement('button')
+    submit.type = 'submit'
+    submit.className = 'maer-vault-primary'
+    submit.textContent = mode === 'export' ? 'Choisir le fichier' : 'Choisir et remplacer'
+    actions.append(submit, button('Annuler', 'backup-cancel', 'maer-vault-secondary'))
+    form.append(actions)
+    section.append(heading, description, form)
+    this.root.replaceChildren(section)
+    form.querySelector<HTMLInputElement>('input[name="passphrase"]')?.focus()
   }
 
   private renderEditor(entry?: PasswordVaultEntrySummary): void {
@@ -539,6 +600,75 @@ export class PasswordVaultPanel {
             target.disabled = false
           })
         break
+      case 'copy-username':
+        if (!entryId) break
+        target.disabled = true
+        void this.bridge.copyUsername(entryId)
+          .then((result) => {
+            if (!this.disposed) {
+              this.notice(`Nom d’utilisateur copié. Effacement dans ${result.clearAfterSeconds} secondes.`)
+            }
+          })
+          .catch((error: unknown) => this.handleError(error))
+          .finally(() => { target.disabled = false })
+        break
+      case 'reveal':
+        if (!entryId) break
+        target.disabled = true
+        void this.bridge.reveal(entryId)
+          .then((result) => {
+            if (this.disposed || this.selectedId !== entryId) return
+            const detail = this.root.querySelector<HTMLElement>('[data-vault-detail]')
+            if (!detail) return
+            detail.querySelector('[data-vault-revealed]')?.remove()
+            const revealed = document.createElement('div')
+            revealed.className = 'maer-vault-revealed'
+            revealed.dataset.vaultRevealed = ''
+            const label = document.createElement('label')
+            label.textContent = 'Mot de passe affiché pendant 15 secondes'
+            const input = document.createElement('input')
+            input.type = 'text'
+            input.readOnly = true
+            input.value = result.password
+            input.autocomplete = 'off'
+            label.append(input)
+            revealed.append(label)
+            detail.prepend(revealed)
+            input.focus()
+            input.select()
+            this.revealTimer = setTimeout(() => {
+              input.value = ''
+              revealed.remove()
+              this.revealTimer = undefined
+            }, 15_000)
+          })
+          .catch((error: unknown) => this.handleError(error))
+          .finally(() => { target.disabled = false })
+        break
+      case 'open-url':
+        if (!entryId) break
+        target.disabled = true
+        void this.bridge.openUrl(entryId)
+          .then(() => { if (!this.disposed) this.notice('Site ouvert dans votre navigateur par défaut.') })
+          .catch((error: unknown) => this.handleError(error))
+          .finally(() => { target.disabled = false })
+        break
+      case 'export-backup':
+        this.renderBackupForm('export')
+        break
+      case 'import-backup':
+        this.renderBackupForm('import')
+        break
+      case 'backup-cancel':
+        void this.refreshStatus()
+        break
+      case 'reset':
+        if (!window.confirm('Réinitialiser définitivement le coffre local ? Les données non sauvegardées seront perdues.')) break
+        this.renderLoading('Réinitialisation du coffre…')
+        void this.bridge.reset()
+          .then((status) => { if (!this.disposed) this.renderLocked(status) })
+          .catch((error: unknown) => { if (!this.disposed) this.handleError(error) })
+        break
       case 'delete':
         if (!entryId || !window.confirm('Supprimer définitivement cet identifiant du coffre ?')) break
         target.disabled = true
@@ -588,6 +718,50 @@ export class PasswordVaultPanel {
     }
     event.preventDefault()
     const form = event.target
+    if (form.dataset.vaultForm === 'backup-export' || form.dataset.vaultForm === 'backup-import') {
+      const passphrase = form.elements.namedItem('passphrase') as HTMLInputElement | null
+      const confirmation = form.elements.namedItem('confirmation') as HTMLInputElement | null
+      if (!passphrase || !form.reportValidity() || passphrase.value.length < 12) {
+        passphrase?.setCustomValidity('Utilisez au moins 12 caractères.')
+        passphrase?.reportValidity()
+        return
+      }
+      passphrase.setCustomValidity('')
+      if (confirmation && confirmation.value !== passphrase.value) {
+        confirmation.setCustomValidity('Les deux phrases secrètes ne correspondent pas.')
+        confirmation.reportValidity()
+        return
+      }
+      confirmation?.setCustomValidity('')
+      const value = passphrase.value
+      const mode = form.dataset.vaultForm === 'backup-export' ? 'export' : 'import'
+      if (mode === 'import' && !window.confirm('Remplacer entièrement le coffre actuel par cette sauvegarde ?')) {
+        passphrase.value = ''
+        if (confirmation) confirmation.value = ''
+        return
+      }
+      this.renderLoading(mode === 'export' ? 'Chiffrement de la sauvegarde…' : 'Restauration du coffre…')
+      const operation = mode === 'export'
+        ? this.bridge.exportBackup(value)
+        : this.bridge.importBackup(value)
+      passphrase.value = ''
+      if (confirmation) confirmation.value = ''
+      void operation
+        .then((result) => {
+          if (this.disposed) return
+          if (!result.completed) {
+            void this.refreshStatus()
+            return
+          }
+          void this.refreshStatus().then(() => this.notice(
+            mode === 'export'
+              ? `Sauvegarde chiffrée créée (${result.entryCount} entrée${result.entryCount === 1 ? '' : 's'}).`
+              : `Coffre restauré (${result.entryCount} entrée${result.entryCount === 1 ? '' : 's'}).`,
+          ))
+        })
+        .catch((error: unknown) => { if (!this.disposed) this.handleError(error) })
+      return
+    }
     const title = form.elements.namedItem('title') as HTMLInputElement | null
     const username = form.elements.namedItem('username') as HTMLInputElement | null
     const url = form.elements.namedItem('url') as HTMLInputElement | null

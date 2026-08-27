@@ -1,4 +1,7 @@
-import type { DesktopCredential } from '../shared/desktop-contract'
+import type {
+  DesktopCredential,
+  DesktopMeetingRequest,
+} from '../shared/desktop-contract'
 import {
   renderConnectionChoiceScreen,
   renderCredentialsScreen,
@@ -64,6 +67,8 @@ export interface DesktopBridge {
   loadCredential(jid: string): Promise<DesktopCredential | undefined>
   saveValidatedCredential(input: SaveCredentialRequest): Promise<void>
   deleteCredential(jid: string): Promise<boolean>
+  openMeeting(input: DesktopMeetingRequest): Promise<void>
+  closeMeeting(): Promise<void>
 }
 
 export interface ChatConnectRequest {
@@ -85,6 +90,8 @@ type QrEncoder = (value: string) => Promise<string>
 function errorMessage(value: unknown): string {
   if (value instanceof Error && value.message) {
     return value.message
+      .replace(/^Error invoking remote method ['"][^'"]+['"]:\s*/iu, '')
+      .replace(/^Error:\s*/iu, '')
   }
   return 'Une erreur inattendue est survenue.'
 }
@@ -98,6 +105,7 @@ export class OnboardingController {
   #pairingSessionId?: string
   #pollTimer?: ReturnType<typeof setInterval>
   #pollInFlight = false
+  #retryStoredAccount?: string
 
   constructor(
     root: HTMLElement,
@@ -113,6 +121,7 @@ export class OnboardingController {
     this.#encodeQr = encodeQr
     this.#root.addEventListener('click', this.#onClick)
     this.#root.addEventListener('submit', this.#onSubmit)
+    this.#root.addEventListener('keydown', this.#onKeydown)
   }
 
   async start(): Promise<void> {
@@ -124,21 +133,39 @@ export class OnboardingController {
     this.#clearPolling()
     this.#root.removeEventListener('click', this.#onClick)
     this.#root.removeEventListener('submit', this.#onSubmit)
+    this.#root.removeEventListener('keydown', this.#onKeydown)
+  }
+
+  #focusScreen(): void {
+    queueMicrotask(() => {
+      const heading = this.#root.querySelector<HTMLElement>('h1')
+      if (heading) {
+        heading.tabIndex = -1
+        heading.focus()
+      } else {
+        this.#root.querySelector<HTMLElement>('button, input, [tabindex]')?.focus()
+      }
+    })
   }
 
   #showWelcome(): void {
     this.#root.hidden = false
     this.#root.innerHTML = renderWelcomeScreen(this.#bootstrap?.accounts ?? [])
+    this.#retryStoredAccount = undefined
+    this.#focusScreen()
   }
 
   #showChoice(): void {
     this.#root.hidden = false
     this.#root.innerHTML = renderConnectionChoiceScreen()
+    this.#retryStoredAccount = undefined
+    this.#focusScreen()
   }
 
   #showCredentials(message?: string): void {
     this.#root.hidden = false
     this.#root.innerHTML = renderCredentialsScreen()
+    this.#retryStoredAccount = undefined
     if (message) {
       const alert = this.#root.querySelector<HTMLElement>('[data-role="form-error"]')
       if (alert) {
@@ -146,6 +173,7 @@ export class OnboardingController {
         alert.hidden = false
       }
     }
+    this.#focusScreen()
   }
 
   #onClick = (event: Event): void => {
@@ -158,6 +186,12 @@ export class OnboardingController {
       return
     }
 
+    const forgottenAccount = target.dataset.forgetAccount
+    if (forgottenAccount) {
+      void this.#forgetAccount(forgottenAccount, target)
+      return
+    }
+
     switch (target.dataset.action) {
       case 'start':
         this.#showChoice()
@@ -165,14 +199,20 @@ export class OnboardingController {
       case 'back':
         this.#showWelcome()
         break
+      case 'back-to-choice':
+        this.#showChoice()
+        break
       case 'password':
       case 'use-password':
         void this.#cancelPairing()
         this.#showCredentials()
         break
       case 'pair':
-      case 'retry':
         void this.#startPairing()
+        break
+      case 'retry':
+        if (this.#retryStoredAccount) void this.#connectStoredAccount(this.#retryStoredAccount)
+        else void this.#startPairing()
         break
       case 'cancel-pairing':
         void this.#cancelPairing()
@@ -181,6 +221,40 @@ export class OnboardingController {
       case 'toggle-password':
         this.#togglePassword(target)
         break
+    }
+  }
+
+  #onKeydown = (event: KeyboardEvent): void => {
+    if (event.key !== 'Escape') return
+    if (this.#root.querySelector('.pairing-screen')) {
+      event.preventDefault()
+      void this.#cancelPairing()
+      this.#showChoice()
+    } else if (this.#root.querySelector('.credentials-screen')) {
+      event.preventDefault()
+      this.#showChoice()
+    } else if (this.#root.querySelector('.choice-screen, .error-screen')) {
+      event.preventDefault()
+      this.#showWelcome()
+    }
+  }
+
+  async #forgetAccount(jid: string, button: HTMLElement): Promise<void> {
+    if (!window.confirm(`Oublier ${jid} sur cet ordinateur ?`)) return
+    ;(button as HTMLButtonElement).disabled = true
+    try {
+      await this.#bridge.deleteCredential(jid)
+      if (this.#bootstrap) {
+        this.#bootstrap.accounts = this.#bootstrap.accounts.filter((account) => account !== jid)
+      }
+      this.#showWelcome()
+    } catch (error) {
+      this.#showWelcome()
+      const alert = document.createElement('p')
+      alert.className = 'form-error'
+      alert.setAttribute('role', 'alert')
+      alert.textContent = errorMessage(error)
+      this.#root.querySelector('.welcome-card')?.append(alert)
     }
   }
 
@@ -222,6 +296,7 @@ export class OnboardingController {
   }
 
   async #connectStoredAccount(jid: string): Promise<void> {
+    this.#retryStoredAccount = jid
     try {
       this.#root.innerHTML = renderLoadingScreen('Ouverture de vos conversations…')
       const credential = await this.#bridge.loadCredential(jid)
@@ -231,10 +306,12 @@ export class OnboardingController {
       await this.#connectAndPersist(jid, credential, true)
     } catch (error) {
       this.#root.innerHTML = renderErrorScreen(errorMessage(error))
+      this.#focusScreen()
     }
   }
 
   async #startPairing(): Promise<void> {
+    this.#retryStoredAccount = undefined
     this.#clearPolling()
     this.#root.innerHTML = renderLoadingScreen('Création d’un QR code sécurisé…')
     try {
@@ -251,6 +328,7 @@ export class OnboardingController {
       }, 2_000)
     } catch (error) {
       this.#root.innerHTML = renderErrorScreen(errorMessage(error))
+      this.#focusScreen()
     }
   }
 
@@ -264,10 +342,12 @@ export class OnboardingController {
       this.#clearPolling()
       if (result.status === 'expired') {
         this.#root.innerHTML = renderErrorScreen('Le QR code a expiré. Générez-en un nouveau.')
+        this.#focusScreen()
         return
       }
       if (result.status === 'rejected') {
         this.#root.innerHTML = renderErrorScreen('L’association a été refusée sur le téléphone.')
+        this.#focusScreen()
         return
       }
       await this.#connectAndPersist(
@@ -284,6 +364,7 @@ export class OnboardingController {
     } catch (error) {
       this.#clearPolling()
       this.#root.innerHTML = renderErrorScreen(errorMessage(error))
+      this.#focusScreen()
     } finally {
       this.#pollInFlight = false
     }

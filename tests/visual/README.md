@@ -30,5 +30,18 @@ Les quatre images de `tests/visual/baselines/` doivent être inspectées dans la
 revue que le changement UI. La CI ne doit jamais activer la mise à jour automatique.
 Les captures courantes sont écrites hors dépôt dans `.codex-tmp/visual`.
 
+Les quatre comparaisons pixel utilisent volontairement une conversation fixture
+stable. La même commande ouvre aussi `real-converse.html`, initialise la version
+réellement embarquée de Converse.js et vérifie ses composants personnalisés,
+`#controlbox`, `.box-flyout` et l’injection du rail/sidebar MAER. Cette seconde
+sonde structurelle empêche une baseline factice de masquer une rupture du DOM
+Converse ; elle produit `real-converse-light-920.png` sans en faire une baseline
+pixel dépendante d’un compte XMPP. Cette sonde utilise bien le bundle Converse
+réel, mais elle n’est pas authentifiée et ne démontre donc ni une conversation
+serveur réelle, ni les boutons d’appel d’une conversation connectée.
+
 Ce harnais statique doit être complété, avant release, par une capture du binaire
-Electron packagé après authentification.
+Electron packagé après authentification. `scripts/smoke.mjs` propose pour cela
+un mode optionnel `MAER_CHAT_CONNECTED_SMOKE=1` avec identifiants jetables dans
+les variables d’environnement ; aucune valeur d’identification n’est affichée
+ou persistée par le script, et le profil temporaire est purgé à la fermeture.

@@ -7,13 +7,18 @@ function source(path: string): string {
 }
 
 describe('Password Vault plugin security boundaries', () => {
-  it('has no reveal operation and routes copy through the main process', () => {
-    expect(PASSWORD_VAULT_ACTIONS).not.toContain('reveal')
+  it('keeps explicit copy and time-bounded reveal operations behind the main process', () => {
+    expect(PASSWORD_VAULT_ACTIONS).toContain('reveal')
     expect(PASSWORD_VAULT_ACTIONS).toContain('copy')
     expect(source('../src/plugins/password-vault/main/plugin.ts')).toContain(
       'this.clipboardLease.copy(password)',
     )
-    expect(source('../src/plugins/password-vault/preload/bridge.ts')).not.toContain('reveal')
+    const preload = source('../src/plugins/password-vault/preload/bridge.ts')
+    const renderer = source('../src/plugins/password-vault/renderer/plugin.ts')
+    expect(preload).toContain("base('reveal', createRequestId())")
+    expect(renderer).toContain('this.revealTimer = setTimeout')
+    expect(renderer).toContain('input.value = result.password')
+    expect(renderer).toContain("input.value = ''")
   })
 
   it('does not persist or log renderer secrets', () => {

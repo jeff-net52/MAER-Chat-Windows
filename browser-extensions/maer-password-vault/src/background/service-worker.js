@@ -29,7 +29,7 @@
       ok: false,
       error: Object.freeze({
         code: 'VAULT_LOCKED',
-        message: 'Coffre MAER indisponible ou verrouille.'
+        message: 'Coffre MAER indisponible ou verrouillé.'
       })
     });
   }

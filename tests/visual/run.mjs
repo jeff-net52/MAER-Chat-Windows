@@ -82,6 +82,7 @@ function comparePng(actualBuffer, baselineBuffer, name) {
 
 const port = await availablePort()
 const url = `http://127.0.0.1:${port}/shell.html`
+const realConverseUrl = `http://127.0.0.1:${port}/real-converse.html`
 const vite = spawn(process.execPath,
   [viteCli, '.', '--host', '127.0.0.1', '--port', String(port), '--strictPort'],
   { cwd: testRoot, env: { ...process.env, NO_COLOR: '1' }, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true })
@@ -178,11 +179,59 @@ try {
   const vaultOutput = path.join(outputRoot, 'password-vault-dark-920.png')
   await vaultPage.screenshot({ path: vaultOutput, fullPage: true })
   await vaultPage.close()
+
+  // Structural regression check against the actual bundled Converse.js 14
+  // custom elements. Pixel baselines above remain deterministic fixtures;
+  // this page prevents them from passing when MAER selectors no longer match
+  // the real dependency DOM.
+  const realPage = await browser.newPage({ viewport: { width: 920, height: 900 }, deviceScaleFactor: 1 })
+  const realErrors = []
+  realPage.on('console', (message) => { if (message.type() === 'error') realErrors.push(message.text()) })
+  realPage.on('pageerror', (error) => realErrors.push(error.message))
+  await realPage.goto(realConverseUrl, { waitUntil: 'networkidle' })
+  try {
+    await realPage.waitForFunction(() => ['true', 'failed'].includes(
+      document.documentElement.dataset.maerRealConverseReady ?? '',
+    ))
+  } catch (error) {
+    const diagnostic = await realPage.evaluate(() => ({
+      ready: document.documentElement.dataset.maerRealConverseReady,
+      failure: window.__maerRealConverseFailure,
+      body: document.body.innerHTML.slice(0, 500),
+    }))
+    throw new Error(`Expiration du DOM Converse réel : ${JSON.stringify({ diagnostic, realErrors })}`, { cause: error })
+  }
+  const realDom = await realPage.evaluate(() => {
+    const chats = document.querySelector('converse-chats')
+    const controlbox = document.querySelector('#controlbox')
+    return {
+      ready: document.documentElement.dataset.maerRealConverseReady,
+      failure: window.__maerRealConverseFailure,
+      chatsDefined: Boolean(chats && chats.constructor !== HTMLElement),
+      controlbox: Boolean(controlbox),
+      actualFlyout: Boolean(controlbox?.querySelector('.box-flyout')),
+      shell: Boolean(document.querySelector('#maer-desktop-shell')),
+      rail: Boolean(document.querySelector('#maer-app-rail')),
+      sidebar: Boolean(document.querySelector('#maer-conversation-sidebar')),
+    }
+  })
+  assert.equal(realDom.ready, 'true', `Converse réel non initialisé : ${realDom.failure ?? 'erreur inconnue'}`)
+  assert.equal(realDom.chatsDefined, true, 'Le composant converse-chats réel n’est pas défini')
+  assert.equal(realDom.controlbox, true, 'Le vrai controlbox Converse est absent')
+  assert.equal(realDom.actualFlyout, true, 'La structure réelle .box-flyout a changé')
+  assert.equal(realDom.shell, true)
+  assert.equal(realDom.rail, true)
+  assert.equal(realDom.sidebar, true)
+  assert.deepEqual(realErrors, [], `Erreurs du DOM Converse réel : ${realErrors.join(' | ')}`)
+  const realConverseOutput = path.join(outputRoot, 'real-converse-light-920.png')
+  await realPage.screenshot({ path: realConverseOutput, fullPage: true })
+  await realPage.close()
   process.stdout.write(`${JSON.stringify({
     ok: true,
     updateBaselines,
     results,
     vaultPreview: { output: vaultOutput, geometry: vaultGeometry },
+    realConverse: { output: realConverseOutput, geometry: realDom },
   })}\n`)
 } finally {
   await browser?.close()
