@@ -37,6 +37,7 @@ npm ci
 npm ls --all
 npm audit --json
 node scripts/verify-third-party-compliance.mjs
+npm run generate:sbom
 npm run typecheck
 npm test
 npm run test:visual

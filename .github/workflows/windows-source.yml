@@ -40,6 +40,9 @@ jobs:
       - name: Verify open-source notices and corresponding-source lock
         run: npm run verify:licenses
 
+      - name: Generate CycloneDX and SPDX software bills of materials
+        run: npm run generate:sbom
+
       - name: Typecheck
         run: npm run typecheck
 

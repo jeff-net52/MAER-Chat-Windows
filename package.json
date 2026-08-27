@@ -16,6 +16,7 @@
     "test:e2e": "node scripts/smoke.mjs",
     "test:visual": "node tests/visual/run.mjs",
     "test:watch": "vitest",
+    "generate:sbom": "node scripts/generate-sboms.mjs",
     "verify:licenses": "node scripts/verify-third-party-compliance.mjs",
     "verify:licenses:packaged": "node scripts/verify-packaged-licenses.mjs",
     "typecheck": "tsc --noEmit",
@@ -31,14 +32,14 @@
     "qrcode": "1.5.4"
   },
   "devDependencies": {
-    "@types/node": "26.2.0",
+    "@types/node": "25.9.5",
     "@types/qrcode": "1.5.6",
     "electron": "43.4.1",
     "electron-builder": "26.15.3",
     "electron-vite": "5.0.0",
     "jsdom": "30.0.1",
     "playwright": "^1.58.2",
-    "typescript": "7.0.2",
+    "typescript": "5.9.3",
     "vite": "7.3.6",
     "vitest": "4.1.11"
   },
