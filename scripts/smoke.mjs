@@ -1,18 +1,141 @@
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
 import { mkdtemp, rm } from 'node:fs/promises'
+import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { _electron as electron } from 'playwright'
+import { _electron as electron, chromium } from 'playwright'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const root = path.resolve(here, '..')
-const packagedExecutablePath = process.env.MAER_CHAT_EXECUTABLE
+
+function packagedExecutableArgument(args) {
+  if (args.length === 0) return process.env.MAER_CHAT_EXECUTABLE
+  if (args.length === 2 && args[0] === '--executable' && args[1] && !args[1].includes('\0')) {
+    return path.resolve(args[1])
+  }
+  throw new Error('Usage: node scripts/smoke.mjs [--executable <path>]')
+}
+
+const packagedExecutablePath = packagedExecutableArgument(process.argv.slice(2))
 const userDataDirectory = await mkdtemp(path.join(tmpdir(), 'maer-chat-smoke-'))
 let electronApp
+let cdpBrowser
+let packagedProcess
 const errors = []
 const mainProcessErrors = []
+
+function markPhase(phase) {
+  console.log(JSON.stringify({ smokePhase: phase }))
+}
+
+async function withDeadline(label, promise, timeoutMs = 30_000) {
+  let timer
+  try {
+    return await Promise.race([
+      promise,
+      new Promise((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error(`Smoke timeout during ${label}.`)),
+          timeoutMs,
+        )
+      }),
+    ])
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+async function reserveLoopbackPort() {
+  const server = createServer()
+  await new Promise((resolve, reject) => {
+    server.once('error', reject)
+    server.listen(0, '127.0.0.1', resolve)
+  })
+  const address = server.address()
+  assert.ok(address && typeof address === 'object')
+  await new Promise((resolve, reject) => {
+    server.close((error) => (error ? reject(error) : resolve()))
+  })
+  return address.port
+}
+
+async function waitForCdp(endpoint, child) {
+  return new Promise((resolve, reject) => {
+    let settled = false
+    let timer
+    const finish = (error) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      child.removeListener('exit', onExit)
+      error ? reject(error) : resolve()
+    }
+    const onExit = (code, signal) => {
+      finish(new Error(`Packaged application exited before CDP (${code ?? signal}).`))
+    }
+    const probe = async () => {
+      if (settled) return
+      try {
+        const response = await fetch(`${endpoint}/json/version`)
+        if (response.ok) {
+          finish()
+          return
+        }
+      } catch {
+        // The local endpoint is expected to refuse connections during startup.
+      }
+      timer = setTimeout(probe, 100)
+    }
+    child.once('exit', onExit)
+    void probe()
+  })
+}
+
+async function launchPackagedApplication(executablePath, environment) {
+  const port = await reserveLoopbackPort()
+  const endpoint = `http://127.0.0.1:${port}`
+  const child = spawn(
+    executablePath,
+    [
+      '--remote-debugging-address=127.0.0.1',
+      `--remote-debugging-port=${port}`,
+    ],
+    {
+      cwd: path.dirname(executablePath),
+      env: environment,
+      stdio: ['ignore', 'ignore', 'pipe'],
+      windowsHide: true,
+    },
+  )
+  child.stderr.on('data', (chunk) => {
+    mainProcessErrors.push(Buffer.from(chunk).toString('utf8').trim().slice(0, 500))
+  })
+  try {
+    await withDeadline('packaged CDP endpoint', waitForCdp(endpoint, child), 45_000)
+    const browser = await chromium.connectOverCDP(endpoint)
+    const context = browser.contexts()[0]
+    assert.ok(context, 'Packaged application did not expose a browser context')
+    const page = context.pages()[0] ?? await context.waitForEvent('page')
+    return { browser, child, page }
+  } catch (error) {
+    if (child.exitCode === null) child.kill()
+    throw error
+  }
+}
+
+async function removeTemporaryProfile() {
+  for (let attempt = 1; attempt <= 5; attempt += 1) {
+    try {
+      await rm(userDataDirectory, { recursive: true, force: true })
+      return
+    } catch (error) {
+      if (!['EBUSY', 'EPERM'].includes(error?.code) || attempt === 5) throw error
+      await new Promise((resolve) => setTimeout(resolve, attempt * 200))
+    }
+  }
+}
 
 function nativeFrame(value) {
   const payload = Buffer.from(JSON.stringify(value), 'utf8')
@@ -152,25 +275,40 @@ async function verifyPackagedNativeMessaging(executablePath) {
 }
 
 try {
-  electronApp = await electron.launch({
-    args: ['.'],
-    cwd: root,
-    env: {
-      ...process.env,
-      MAER_CHAT_E2E: '1',
-      MAER_CHAT_E2E_USER_DATA_DIR: userDataDirectory,
-    },
-  })
-  electronApp.process().stderr?.on('data', (chunk) => {
-    mainProcessErrors.push(Buffer.from(chunk).toString('utf8').trim().slice(0, 500))
-  })
-  const page = await electronApp.firstWindow()
+  markPhase('launch')
+  const smokeEnvironment = {
+    ...process.env,
+    MAER_CHAT_E2E: '1',
+    MAER_CHAT_E2E_USER_DATA_DIR: userDataDirectory,
+  }
+  let page
+  if (packagedExecutablePath) {
+    const packaged = await launchPackagedApplication(
+      packagedExecutablePath,
+      smokeEnvironment,
+    )
+    cdpBrowser = packaged.browser
+    packagedProcess = packaged.child
+    page = packaged.page
+  } else {
+    electronApp = await withDeadline('Electron launch', electron.launch({
+      args: ['.'],
+      cwd: root,
+      env: smokeEnvironment,
+    }), 45_000)
+    electronApp.process().stderr?.on('data', (chunk) => {
+      mainProcessErrors.push(Buffer.from(chunk).toString('utf8').trim().slice(0, 500))
+    })
+    markPhase('first-window')
+    page = await withDeadline('first BrowserWindow', electronApp.firstWindow())
+  }
   page.on('console', (message) => {
     if (message.type() === 'error') errors.push(message.text())
   })
   page.on('pageerror', (error) => errors.push(error.message))
 
-  const omemoWasm = await page.evaluate(async () => {
+  markPhase('renderer-assets')
+  const omemoWasm = await withDeadline('OMEMO WebAssembly verification', page.evaluate(async () => {
     const response = await fetch(new URL('curve25519_compiled.wasm', document.baseURI))
     assertResponse(response)
     const bytes = await response.arrayBuffer()
@@ -180,13 +318,23 @@ try {
     function assertResponse(value) {
       if (!value.ok) throw new Error(`Chargement OMEMO impossible (${value.status}).`)
     }
-  })
+  }))
   assert.ok(omemoWasm > 80_000, 'OMEMO WebAssembly asset is unexpectedly small')
 
-  const pluginStatus = await page.evaluate(() => window.maerPlugins.passwordVault.status())
+  markPhase('plugin-status')
+  const pluginStatus = await withDeadline(
+    'password-vault plugin status',
+    page.evaluate(() => window.maerPlugins.passwordVault.status()),
+  )
   assert.deepEqual(pluginStatus, { state: 'locked', entryCount: null })
-  const nativeMessagingReady = await verifyPackagedNativeMessaging(packagedExecutablePath)
+  markPhase('native-messaging')
+  const nativeMessagingReady = await withDeadline(
+    'packaged Native Messaging verification',
+    verifyPackagedNativeMessaging(packagedExecutablePath),
+    30_000,
+  )
 
+  markPhase('onboarding')
   await page.waitForSelector('[data-action="start"]', { timeout: 15_000 })
   const wordmark = page.locator('img[alt="MAER Chat"]')
   await wordmark.waitFor({ state: 'visible' })
@@ -246,6 +394,21 @@ try {
     networkFailureHandled,
   }))
 } finally {
-  await electronApp?.close()
-  await rm(userDataDirectory, { recursive: true, force: true })
+  await cdpBrowser?.close().catch(() => undefined)
+  if (packagedProcess?.exitCode === null) {
+    packagedProcess.kill()
+    await withDeadline(
+      'packaged process shutdown',
+      new Promise((resolve) => packagedProcess.once('close', resolve)),
+      10_000,
+    ).catch(() => undefined)
+  }
+  if (electronApp) {
+    try {
+      await withDeadline('Electron shutdown', electronApp.close(), 10_000)
+    } catch {
+      electronApp.process().kill()
+    }
+  }
+  await removeTemporaryProfile()
 }

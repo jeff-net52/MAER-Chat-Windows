@@ -53,8 +53,12 @@ describe('public open-source release metadata', () => {
       resolve(root, 'scripts/verify-packaged-licenses.mjs'),
       'utf8',
     )
+    const smoke = readFileSync(resolve(root, 'scripts/smoke.mjs'), 'utf8')
 
     expect(workflow).toContain('npm run verify:licenses:packaged')
+    expect(workflow).toContain('npm run test:e2e:packaged')
+    expect(smoke).toContain("'--remote-debugging-address=127.0.0.1'")
+    expect(smoke).toContain('chromium.connectOverCDP(endpoint)')
     expect(workflow).toContain('electron-builder --win --dir')
     expect(packagedVerifier).toContain("'LICENSE.electron.txt'")
     expect(packagedVerifier).toContain("'LICENSES.chromium.html'")

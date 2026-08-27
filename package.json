@@ -14,6 +14,7 @@
     "build:native-host": "node scripts/build-native-host-shim.mjs",
     "test": "vitest run",
     "test:e2e": "node scripts/smoke.mjs",
+    "test:e2e:packaged": "node scripts/smoke.mjs --executable \"dist/win-unpacked/MAER Chat.exe\"",
     "test:visual": "node tests/visual/run.mjs",
     "test:watch": "vitest",
     "generate:sbom": "node scripts/generate-sboms.mjs",

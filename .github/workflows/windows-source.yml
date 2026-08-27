@@ -64,6 +64,9 @@ jobs:
       - name: Verify licenses in the packaged application
         run: npm run verify:licenses:packaged
 
+      - name: Smoke-test the actual packaged executable and Native Messaging host
+        run: npm run test:e2e:packaged
+
       - name: Reject active references to the retired domain
         shell: pwsh
         run: |
