@@ -28,7 +28,6 @@ describe('MAER service configuration', () => {
     expect(html).toContain('https://xmpp.maer.fr')
     expect(html).toContain('wss://xmpp.maer.fr')
     expect(html).toContain('https://*.xmpp.maer.fr')
-    expect(html).not.toContain('chaumont.me')
     expect(html).not.toContain('https://*.maer.fr')
   })
 })

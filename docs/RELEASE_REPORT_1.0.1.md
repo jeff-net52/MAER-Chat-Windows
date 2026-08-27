@@ -41,8 +41,9 @@ Date de construction : 26 août 2026.
 
 Les sondes HTTPS du 26 août 2026 ont échoué pendant la négociation TLS avant
 toute réponse HTTP sur host-meta, WebSocket, BOSH et les deux chemins
-d’association sondés. Le serveur présente `CN=chaumont.me`, qui ne couvre pas
-`xmpp.maer.fr` ; aucun contournement de certificat n’a été utilisé.
+d’association sondés. Le serveur présentait alors un certificat d’un ancien
+domaine qui ne couvrait pas `xmpp.maer.fr` ; aucun contournement de certificat
+n’a été utilisé.
 
 La connexion XMPP, la messagerie, OMEMO et le scénario QR complet ne sont donc
 pas déclarés validés. Ils nécessitent un certificat TLS accepté, les endpoints
