@@ -8,6 +8,7 @@ import {
   type StartedCall,
 } from './call-service'
 import type { RendererPluginRegistry } from '../plugins/core/renderer/plugin-registry'
+import packageMetadata from '../../package.json'
 
 export type ThemePreference = 'system' | 'light' | 'dark'
 
@@ -422,6 +423,21 @@ function renderSettingsPanel(container: HTMLElement): void {
       <div class="maer-media-test" data-maer-media-test hidden><video autoplay muted playsinline></video><p role="status"></p><button type="button" data-maer-action="stop-media">Arrêter le test</button></div>
     </section>
     <section class="maer-panel-section maer-provider-note"><h3>Visioconférence</h3><p>Les réunions s’ouvrent actuellement sur Jitsi Meet. Le nom du salon est aléatoire et ne contient aucune adresse XMPP.</p></section>
+    <section class="maer-panel-section maer-about-section" data-maer-about aria-labelledby="maer-about-heading">
+      <h3 id="maer-about-heading">À propos et licences</h3>
+      <p class="maer-about-product"><strong>MAER Chat <span data-maer-app-version></span></strong><small>Client XMPP pour Windows</small></p>
+      <p>MAER Chat est un logiciel libre distribué sous GPL-3.0-or-later, sans garantie. Les textes complets et les sources correspondantes sont publiés avec chaque release publique.</p>
+      <details class="maer-license-details">
+        <summary data-maer-license-summary>Composants libres principaux</summary>
+        <ul aria-label="Licences des composants principaux">
+          <li><strong>Converse.js 14.0.0</strong><span>MPL-2.0</span></li>
+          <li><strong>libomemo.js 2.0.2</strong><span>GPL-3.0-only</span></li>
+          <li><strong>Electron 43.4.1 et Chromium</strong><span>MIT et notices Chromium</span></li>
+          <li><strong>MAER Password Vault</strong><span>GPL-3.0-or-later · KDBX et dépendances MIT</span></li>
+        </ul>
+      </details>
+      <p class="maer-legal-location">Consultez <strong>THIRD_PARTY_NOTICES.md</strong> et <strong>THIRD_PARTY_LICENSES</strong> dans le dépôt source et le paquet de licences de la release.</p>
+    </section>
     <button type="button" class="maer-danger-action" data-maer-action="logout">Se déconnecter sur cet ordinateur</button>`
 
   const account = container.querySelector<HTMLElement>('[data-maer-account]')
@@ -434,6 +450,8 @@ function renderSettingsPanel(container: HTMLElement): void {
   if (notifications) notifications.checked = preferences.notifications
   const sounds = container.querySelector<HTMLInputElement>('[data-maer-setting="sounds"]')
   if (sounds) sounds.checked = preferences.sounds
+  const version = container.querySelector<HTMLElement>('[data-maer-app-version]')
+  if (version) version.textContent = packageMetadata.version
 
   const registry = shellOptions?.pluginRegistry
   if (!registry) return

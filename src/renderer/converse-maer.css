@@ -451,6 +451,51 @@ body.converse-fullscreen {
   text-transform: uppercase;
 }
 
+.maer-about-product strong,
+.maer-about-product small {
+  display: block;
+}
+
+.maer-about-product strong {
+  color: var(--maer-text);
+  font-size: 15px;
+}
+
+.maer-about-product small,
+.maer-legal-location,
+.maer-license-details li span {
+  color: var(--maer-muted);
+  font-size: 12px;
+}
+
+.maer-license-details {
+  margin-top: 14px;
+  color: var(--maer-text);
+}
+
+.maer-license-details summary {
+  color: var(--maer-cyan);
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.maer-license-details ul {
+  display: grid;
+  gap: 9px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.maer-license-details li strong,
+.maer-license-details li span {
+  display: block;
+}
+
+.maer-legal-location {
+  margin-top: 14px !important;
+}
+
 .maer-panel-section p,
 .maer-empty-state {
   margin: 0 0 14px;

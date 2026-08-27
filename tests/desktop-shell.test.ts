@@ -43,6 +43,28 @@ describe('WhatsApp-style desktop shell', () => {
     expect(document.documentElement.dataset.maerTheme).toBe('dark')
   })
 
+  it('exposes an accessible about and open-source licenses section in settings', () => {
+    installMaerDesktopShell({
+      accountJid: 'alice@xmpp.maer.fr',
+      onLogout: vi.fn(async () => undefined),
+      applyChatPreferences: vi.fn(),
+    })
+
+    document.querySelector<HTMLButtonElement>('[data-maer-view="settings"]')?.click()
+
+    const section = document.querySelector<HTMLElement>('[data-maer-about]')
+    const heading = document.querySelector<HTMLElement>('#maer-about-heading')
+    const details = document.querySelector<HTMLDetailsElement>('.maer-license-details')
+    expect(section?.getAttribute('aria-labelledby')).toBe('maer-about-heading')
+    expect(heading?.textContent).toMatch(/propos et licences/i)
+    expect(document.querySelector('[data-maer-app-version]')?.textContent).toMatch(/^\d+\.\d+\.\d+$/u)
+    expect(document.querySelector('[data-maer-license-summary]')?.textContent).toMatch(/composants libres/i)
+    expect(details?.querySelectorAll('li')).toHaveLength(4)
+    expect(section?.textContent).toContain('GPL-3.0-or-later')
+    expect(section?.textContent).toContain('Converse.js 14.0.0')
+    expect(section?.textContent).toContain('libomemo.js 2.0.2')
+  })
+
   it('adds WhatsApp-style conversation search and unread filters', () => {
     document.body.innerHTML = `<div id="controlbox"><div class="box-flyout">
       <div id="chatrooms"><div class="items-list"></div></div>

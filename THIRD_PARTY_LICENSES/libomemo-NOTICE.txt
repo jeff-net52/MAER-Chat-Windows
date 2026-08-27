@@ -1,0 +1,17 @@
+libomemo.js 2.0.2
+SPDX-License-Identifier: GPL-3.0-only
+
+Copyright 2015-2018 Open Whisper Systems
+Copyright 2022-2026 JC Brand
+
+libomemo.js started as a fork of libsignal-protocol-javascript by Open
+Whisper Systems and was modernized and adapted for XMPP OMEMO by its current
+contributors. The upstream project also acknowledges code originating from
+libomemo-c for Curve25519/Ed25519 conversion operations.
+
+The complete GNU General Public License version 3 is distributed in the
+top-level file LICENSE. Corresponding source and exact provenance are described
+in THIRD_PARTY_LICENSES/CORRESPONDING_SOURCE.md and locked in
+THIRD_PARTY_LICENSES/corresponding-sources.lock.json.
+
+Upstream project: https://github.com/conversejs/libomemo.js

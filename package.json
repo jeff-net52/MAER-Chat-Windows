@@ -16,8 +16,10 @@
     "test:e2e": "node scripts/smoke.mjs",
     "test:visual": "node tests/visual/run.mjs",
     "test:watch": "vitest",
+    "verify:licenses": "node scripts/verify-third-party-compliance.mjs",
+    "verify:licenses:packaged": "node scripts/verify-packaged-licenses.mjs",
     "typecheck": "tsc --noEmit",
-    "build": "npm run typecheck && npm run test && electron-vite build && node scripts/verify-renderer-assets.mjs",
+    "build": "npm run typecheck && npm run test && npm run verify:licenses && electron-vite build && node scripts/verify-renderer-assets.mjs",
     "dist": "npm run build && electron-builder --win nsis",
     "dist:dir": "npm run build && electron-builder --win --dir"
   },
@@ -78,6 +80,18 @@
       {
         "from": "assets/icon.png",
         "to": "assets/icon.png"
+      },
+      {
+        "from": "LICENSE",
+        "to": "licenses/LICENSE"
+      },
+      {
+        "from": "THIRD_PARTY_NOTICES.md",
+        "to": "licenses/THIRD_PARTY_NOTICES.md"
+      },
+      {
+        "from": "THIRD_PARTY_LICENSES",
+        "to": "licenses/THIRD_PARTY_LICENSES"
       }
     ],
     "asar": true,
