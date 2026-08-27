@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="fr" data-maer-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MAER Chat — visual regression harness</title>
+  </head>
+  <body class="converse-fullscreen">
+    <div class="conversejs converse-fullscreen">
+      <converse-chats class="converse-fullscreen converse-chatboxes">
+        <div id="controlbox" class="chatbox">
+          <div class="box-flyout">
+            <div class="controlbox-pane">
+              <div id="converse-roster">
+                <div class="roster-group" data-group="Sans groupe">
+                  <div class="roster-group-contacts">
+                    <div class="list-item open">
+                      <a class="list-item-link unread-msgs" href="#">
+                        <span><span class="avatar mock-avatar">A</span><span class="chat-status--avatar"></span></span>
+                        <span class="contact-name">Alice Martin</span>
+                        <span class="msgs-indicator">3</span>
+                      </a>
+                    </div>
+                    <div class="list-item">
+                      <a class="list-item-link" href="#">
+                        <span><span class="avatar mock-avatar mock-avatar-cyan">B</span></span>
+                        <span class="contact-name">Bureau MAER</span>
+                      </a>
+                    </div>
+                    <div class="list-item">
+                      <a class="list-item-link" href="#">
+                        <span><span class="avatar mock-avatar mock-avatar-purple">C</span></span>
+                        <span class="contact-name">Camille Dupont</span>
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="chatbox">
+          <div class="box-flyout mock-chat-flyout">
+            <header class="chat-head">
+              <div class="chatbox-title mock-chat-title">
+                <span class="avatar mock-avatar">A</span>
+                <div class="chatbox-title--row">
+                  <span class="chatbox-title__text">Alice Martin</span>
+                  <span class="chat-head__desc">en ligne</span>
+                </div>
+              </div>
+              <div class="chatbox-title__buttons">
+                <button class="chatbox-btn maer-screen-call" type="button" aria-label="Partager l’écran"></button>
+                <button class="chatbox-btn maer-video-call" type="button" aria-label="Appel vidéo"></button>
+                <button class="chatbox-btn maer-audio-call" type="button" aria-label="Appel audio"></button>
+                <button class="chatbox-btn mock-search" type="button" aria-label="Rechercher">⌕</button>
+              </div>
+            </header>
+            <div class="chat-body">
+              <div class="chat-content">
+                <converse-chat-content>
+                  <div class="message date-separator"><span class="separator-text">Aujourd’hui</span></div>
+                  <div class="message chat-msg">
+                    <span class="show-msg-author-modal"><span class="avatar mock-avatar">A</span></span>
+                    <div class="chat-msg__content">
+                      <div class="chat-msg__message">
+                        <div class="chat-msg__heading"><span class="chat-msg__author">Alice</span><time class="chat-msg__time">09:41</time></div>
+                        <div class="chat-msg__body--wrapper"><span class="chat-msg__text">Bonjour, la nouvelle interface MAER est prête.</span></div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="message chat-msg">
+                    <div class="chat-msg__content chat-msg__content--me">
+                      <div class="chat-msg__message">
+                        <div class="chat-msg__heading"><time class="chat-msg__time">09:42</time></div>
+                        <div class="chat-msg__body--wrapper"><span class="chat-msg__text">Parfait — on conserve cette ergonomie façon WhatsApp et les couleurs MAER.</span></div>
+                      </div>
+                    </div>
+                  </div>
+                </converse-chat-content>
+              </div>
+            </div>
+            <converse-chat-bottom-panel class="bottom-panel">
+              <form class="chat-message-form">
+                <converse-chat-toolbar>
+                  <span class="toolbar-buttons">
+                    <button type="button" aria-label="Émoji">☺</button>
+                    <button type="button" aria-label="Joindre">⌕</button>
+                  </span>
+                  <span><button class="send-button" type="button" aria-label="Envoyer">➤</button></span>
+                </converse-chat-toolbar>
+                <textarea class="chat-textarea" aria-label="Message" placeholder="Entrez un message"></textarea>
+              </form>
+            </converse-chat-bottom-panel>
+          </div>
+        </div>
+      </converse-chats>
+    </div>
+    <script type="module" src="./shell.ts"></script>
+  </body>
+</html>

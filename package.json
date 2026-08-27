@@ -1,0 +1,125 @@
+{
+  "name": "maer-chat-windows",
+  "version": "1.2.0",
+  "description": "Client XMPP sécurisé MAER Chat pour Windows",
+  "private": true,
+  "type": "module",
+  "main": "out/main/index.js",
+  "author": {
+    "name": "MAER Engineering"
+  },
+  "license": "GPL-3.0-or-later",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build:native-host": "node scripts/build-native-host-shim.mjs",
+    "test": "vitest run",
+    "test:e2e": "node scripts/smoke.mjs",
+    "test:e2e:packaged": "node scripts/smoke.mjs --executable \"dist/win-unpacked/MAER Chat.exe\"",
+    "test:visual": "node tests/visual/run.mjs",
+    "test:watch": "vitest",
+    "generate:sbom": "node scripts/generate-sboms.mjs",
+    "verify:licenses": "node scripts/verify-third-party-compliance.mjs",
+    "verify:licenses:packaged": "node scripts/verify-packaged-licenses.mjs",
+    "verify:fuses:packaged": "node scripts/verify-electron-fuses.mjs",
+    "typecheck": "tsc --noEmit",
+    "build": "npm run typecheck && npm run test && npm run verify:licenses && electron-vite build && node scripts/verify-renderer-assets.mjs",
+    "dist": "npm run build && electron-builder --win nsis",
+    "dist:dir": "npm run build && electron-builder --win --dir"
+  },
+  "dependencies": {
+    "@napi-rs/keyring": "1.3.0",
+    "converse.js": "14.0.0",
+    "hash-wasm": "4.12.0",
+    "kdbxweb": "2.1.1",
+    "qrcode": "1.5.4"
+  },
+  "devDependencies": {
+    "@electron/fuses": "2.1.0",
+    "@types/node": "25.9.5",
+    "@types/qrcode": "1.5.6",
+    "electron": "43.4.1",
+    "electron-builder": "26.15.3",
+    "electron-vite": "5.0.0",
+    "jsdom": "30.0.1",
+    "playwright": "^1.58.2",
+    "typescript": "5.9.3",
+    "vite": "7.3.6",
+    "vitest": "4.1.11"
+  },
+  "build": {
+    "appId": "fr.maer.chat.windows",
+    "productName": "MAER Chat",
+    "artifactName": "MAER-Chat-Setup-${version}-${arch}.${ext}",
+    "directories": {
+      "output": "dist",
+      "buildResources": "assets"
+    },
+    "beforePack": "scripts/build-native-host-shim.mjs",
+    "afterPack": "scripts/apply-electron-fuses.mjs",
+    "files": [
+      "out/**/*",
+      "package.json",
+      "LICENSE",
+      "THIRD_PARTY_NOTICES.md",
+      "THIRD_PARTY_LICENSES/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "resources/native-messaging",
+        "to": "native-messaging",
+        "filter": [
+          "install-host.ps1",
+          "uninstall-host.ps1",
+          "maer-password-vault-host.exe",
+          "host-shim/*.cs"
+        ]
+      },
+      {
+        "from": "assets/icon.png",
+        "to": "assets/icon.png"
+      },
+      {
+        "from": "LICENSE",
+        "to": "licenses/LICENSE"
+      },
+      {
+        "from": "THIRD_PARTY_NOTICES.md",
+        "to": "licenses/THIRD_PARTY_NOTICES.md"
+      },
+      {
+        "from": "THIRD_PARTY_LICENSES",
+        "to": "licenses/THIRD_PARTY_LICENSES"
+      }
+    ],
+    "asar": true,
+    "asarUnpack": [
+      "node_modules/@napi-rs/keyring/**/*"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "MAER Chat",
+      "deleteAppDataOnUninstall": false,
+      "include": "build/installer.nsh"
+    }
+  },
+  "overrides": {
+    "kdbxweb": {
+      "@xmldom/xmldom": "0.8.15"
+    }
+  }
+}

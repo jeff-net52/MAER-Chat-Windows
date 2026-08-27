@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Coffre MAER">
+  <defs>
+    <linearGradient id="g" x1="12" y1="8" x2="116" y2="120" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#51f59a"/>
+      <stop offset="1" stop-color="#4de1ff"/>
+    </linearGradient>
+  </defs>
+  <rect width="128" height="128" rx="34" fill="#13252d"/>
+  <path d="M37 59V45c0-16 11-28 27-28s27 12 27 28v14h8a8 8 0 0 1 8 8v38a8 8 0 0 1-8 8H29a8 8 0 0 1-8-8V67a8 8 0 0 1 8-8h8Zm14 0h26V45c0-9-5-14-13-14s-13 5-13 14v14Z" fill="url(#g)"/>
+  <path d="M49 94V75h7l8 10 8-10h7v19H68V84l-4 5-4-5v10H49Z" fill="#071419"/>
+</svg>

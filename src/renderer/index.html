@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://xmpp.maer.fr https://*.xmpp.maer.fr; media-src 'self' blob: https://xmpp.maer.fr https://*.xmpp.maer.fr; connect-src 'self' https://xmpp.maer.fr https://*.xmpp.maer.fr wss://xmpp.maer.fr; font-src 'self' data:; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <title>MAER Chat</title>
+  </head>
+  <body>
+    <div id="onboarding-root" aria-live="polite"></div>
+    <noscript>MAER Chat nécessite JavaScript pour fonctionner.</noscript>
+    <script type="module" src="/src.ts"></script>
+  </body>
+</html>

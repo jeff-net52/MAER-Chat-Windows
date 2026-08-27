@@ -1,0 +1,11 @@
+out/
+dist/
+Release/
+node_modules/
+coverage/
+.ci-temp/
+resources/native-messaging/maer-password-vault-host.exe
+*.log
+.env
+.env.*
+!.env.example

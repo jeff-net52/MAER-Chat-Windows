@@ -1,0 +1,2200 @@
+/*
+ * MAER Chat desktop skin for Converse.js.
+ * WhatsApp-inspired structure, spacing and ergonomics with MAER's blue/cyan identity.
+ */
+
+:root {
+  color-scheme: light;
+  --maer-rail-width: 72px;
+  --maer-sidebar-width: 420px;
+  --maer-blue: #0057b8;
+  --maer-blue-hover: #004a9d;
+  --maer-cyan: #0089e6;
+  --maer-accent-soft: #dcecff;
+  --maer-app-bg: #d9e2e8;
+  --maer-rail-bg: #edf2f6;
+  --maer-panel: #ffffff;
+  --maer-panel-rgb: 255, 255, 255;
+  --maer-panel-header: #f0f4f7;
+  --maer-panel-hover: #f5f8fa;
+  --maer-panel-active: #e7f0fa;
+  --maer-chat-bg: #eaf1f6;
+  --maer-composer-bg: #f0f4f7;
+  --maer-field-bg: #ffffff;
+  --maer-bubble-in: #ffffff;
+  --maer-bubble-out: #dcecff;
+  --maer-text: #111b21;
+  --maer-muted: #667781;
+  --maer-icon: #54656f;
+  --maer-border: #d7e0e5;
+  --maer-divider: #e8edf0;
+  --maer-shadow: rgb(15 38 65 / 13%);
+  --maer-wallpaper-mark: rgb(0 87 184 / 4.8%);
+  --maer-focus: #0089e6;
+  --maer-link: #0057b8;
+  --maer-danger: #d92d20;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-maer-theme]),
+  html[data-maer-theme="system"] {
+    color-scheme: dark;
+    --maer-blue: #0089e6;
+    --maer-blue-hover: #26a5f5;
+    --maer-cyan: #48b7ff;
+    --maer-accent-soft: #07345f;
+    --maer-app-bg: #08131b;
+    --maer-rail-bg: #101b23;
+    --maer-panel: #111d25;
+    --maer-panel-rgb: 17, 29, 37;
+    --maer-panel-header: #1d2b34;
+    --maer-panel-hover: #1c2a33;
+    --maer-panel-active: #263b49;
+    --maer-chat-bg: #07141d;
+    --maer-composer-bg: #1d2b34;
+    --maer-field-bg: #2a3b46;
+    --maer-bubble-in: #1d2b34;
+    --maer-bubble-out: #073f72;
+    --maer-text: #e9f0f4;
+    --maer-muted: #91a4af;
+    --maer-icon: #b4c2ca;
+    --maer-border: #2b3e49;
+    --maer-divider: #22323b;
+    --maer-shadow: rgb(0 0 0 / 25%);
+    --maer-wallpaper-mark: rgb(72 183 255 / 4.5%);
+    --maer-focus: #48b7ff;
+    --maer-link: #66c1ff;
+    --maer-danger: #f97066;
+  }
+}
+
+html[data-maer-theme="light"] {
+  color-scheme: light;
+  --maer-blue: #0057b8;
+  --maer-blue-hover: #004a9d;
+  --maer-cyan: #0089e6;
+  --maer-accent-soft: #dcecff;
+  --maer-app-bg: #d9e2e8;
+  --maer-rail-bg: #edf2f6;
+  --maer-panel: #ffffff;
+  --maer-panel-rgb: 255, 255, 255;
+  --maer-panel-header: #f0f4f7;
+  --maer-panel-hover: #f5f8fa;
+  --maer-panel-active: #e7f0fa;
+  --maer-chat-bg: #eaf1f6;
+  --maer-composer-bg: #f0f4f7;
+  --maer-field-bg: #ffffff;
+  --maer-bubble-in: #ffffff;
+  --maer-bubble-out: #dcecff;
+  --maer-text: #111b21;
+  --maer-muted: #667781;
+  --maer-icon: #54656f;
+  --maer-border: #d7e0e5;
+  --maer-divider: #e8edf0;
+  --maer-shadow: rgb(15 38 65 / 13%);
+  --maer-wallpaper-mark: rgb(0 87 184 / 4.8%);
+  --maer-focus: #0089e6;
+  --maer-link: #0057b8;
+  --maer-danger: #d92d20;
+}
+
+html[data-maer-theme="dark"] {
+  color-scheme: dark;
+  --maer-blue: #0089e6;
+  --maer-blue-hover: #26a5f5;
+  --maer-cyan: #48b7ff;
+  --maer-accent-soft: #07345f;
+  --maer-app-bg: #08131b;
+  --maer-rail-bg: #101b23;
+  --maer-panel: #111d25;
+  --maer-panel-rgb: 17, 29, 37;
+  --maer-panel-header: #1d2b34;
+  --maer-panel-hover: #1c2a33;
+  --maer-panel-active: #263b49;
+  --maer-chat-bg: #07141d;
+  --maer-composer-bg: #1d2b34;
+  --maer-field-bg: #2a3b46;
+  --maer-bubble-in: #1d2b34;
+  --maer-bubble-out: #073f72;
+  --maer-text: #e9f0f4;
+  --maer-muted: #91a4af;
+  --maer-icon: #b4c2ca;
+  --maer-border: #2b3e49;
+  --maer-divider: #22323b;
+  --maer-shadow: rgb(0 0 0 / 25%);
+  --maer-wallpaper-mark: rgb(72 183 255 / 4.5%);
+  --maer-focus: #48b7ff;
+  --maer-link: #66c1ff;
+  --maer-danger: #f97066;
+}
+
+body.converse-fullscreen,
+.conversejs,
+.conversejs-bg,
+#conversejs-bg {
+  --normal-font: "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  --heading-font: "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  --branding-font: "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  --controlbox-width: var(--maer-sidebar-width);
+  --chatroom-width: calc(100vw - var(--maer-rail-width) - var(--maer-sidebar-width));
+  --chat-textarea-height: 44px;
+  --fullpage-chat-height: 100vh;
+  --fullpage-chat-width: 100%;
+  --fullpage-max-chat-textarea-height: 148px;
+  --button-border-radius: 10px;
+  --chatbox-border-radius: 0;
+  --avatar-border-radius: 50%;
+  --message-avatar-width: 34px;
+  --message-avatar-height: 34px;
+  --font-size-tiny: 10px;
+  --font-size-small: 12px;
+  --font-size: 14px;
+  --font-size-large: 16px;
+  --font-size-huge: 20px;
+  --message-font-size: 14px;
+  --line-height-small: 15px;
+  --line-height: 20px;
+  --line-height-large: 22px;
+  --line-height-huge: 27px;
+  --blue: var(--maer-blue);
+  --blue-rgb: 0, 87, 184;
+  --dark-blue: var(--maer-blue-hover);
+  --light-blue: var(--maer-cyan);
+  --light-blue-rgb: 0, 137, 230;
+  --lighter-blue: var(--maer-panel-active);
+  --green: var(--maer-blue);
+  --green-rgb: 0, 87, 184;
+  --dark-green: var(--maer-blue-hover);
+  --foreground-color: var(--maer-text);
+  --background-color: var(--maer-panel);
+  --background-color-rgb: var(--maer-panel-rgb);
+  --global-background-color: var(--maer-app-bg);
+  --primary-color: var(--maer-blue) !important;
+  --primary-rgb: 0, 87, 184;
+  --secondary-color: var(--maer-muted) !important;
+  --secondary-rgb: 102, 119, 129;
+  --chat-color: var(--maer-blue);
+  --chat-rgb: 0, 87, 184;
+  --chat-color-hover: var(--maer-blue-hover);
+  --chat-header-bg-color: var(--maer-panel-header);
+  --chat-header-fg-color: var(--maer-text);
+  --chat-correcting-color: var(--maer-panel-active);
+  --muc-color: var(--maer-cyan);
+  --muc-rgb: 0, 137, 230;
+  --muc-header-bg-color: var(--maer-panel-header);
+  --muc-header-fg-color: var(--maer-text);
+  --controlbox-color: var(--maer-border);
+  --heading-color: var(--maer-text);
+  --text-color: var(--maer-text);
+  --link-color: var(--maer-link);
+  --link-color-hover: var(--maer-cyan);
+  --highlight-color: var(--maer-panel-active);
+  --highlight-color-hover: var(--maer-panel-hover);
+  --success-color: var(--maer-cyan);
+  --success-color-rgb: 0, 137, 230;
+  --info-color: var(--maer-link);
+  --error-color: var(--maer-danger);
+  --focus-color: var(--maer-focus);
+  --disabled-color: var(--maer-muted);
+  --separator-text-color: var(--maer-muted);
+  --chat-status-online: var(--maer-cyan);
+  --chat-status-away: #fdb022;
+  --chat-status-busy: #f97066;
+  color: var(--maer-text);
+  font-family: var(--normal-font);
+  letter-spacing: 0;
+}
+
+html,
+body.converse-fullscreen {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: var(--maer-app-bg);
+}
+
+/* Fixed desktop shell: all interaction stays on its children. */
+#maer-desktop-shell {
+  position: fixed;
+  z-index: 1040;
+  inset: 0;
+  color: var(--maer-text);
+  font-family: "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  pointer-events: none;
+}
+
+#maer-app-rail {
+  position: absolute;
+  z-index: 2;
+  inset: 0 auto 0 0;
+  display: flex;
+  width: var(--maer-rail-width);
+  min-width: var(--maer-rail-width);
+  flex-direction: column;
+  align-items: center;
+  padding: 10px 8px 12px;
+  color: var(--maer-icon);
+  background: var(--maer-rail-bg);
+  border-inline-end: 1px solid var(--maer-border);
+  pointer-events: auto;
+}
+
+.maer-rail-logo {
+  display: block;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  object-fit: contain;
+  border-radius: 12px;
+}
+
+.maer-rail-main,
+.maer-rail-bottom {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.maer-rail-main {
+  margin-top: 20px;
+}
+
+.maer-rail-bottom {
+  margin-top: auto;
+}
+
+.maer-rail-button,
+.maer-account-avatar {
+  position: relative;
+  display: inline-flex;
+  width: 48px;
+  height: 48px;
+  flex: 0 0 48px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  color: var(--maer-icon);
+  background: transparent;
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: color 120ms ease, background-color 120ms ease, transform 120ms ease;
+}
+
+.maer-rail-button svg {
+  width: 25px;
+  height: 25px;
+  fill: currentcolor;
+}
+
+.maer-rail-button:hover,
+.maer-rail-button.is-active,
+.maer-account-avatar:hover {
+  color: var(--maer-cyan);
+  background: var(--maer-panel-active);
+}
+
+.maer-rail-button.is-active::before {
+  position: absolute;
+  top: 10px;
+  bottom: 10px;
+  left: -8px;
+  width: 3px;
+  content: "";
+  background: linear-gradient(var(--maer-blue), var(--maer-cyan));
+  border-radius: 0 3px 3px 0;
+}
+
+.maer-rail-button:active,
+.maer-account-avatar:active {
+  transform: scale(0.96);
+}
+
+.maer-account-avatar,
+.maer-settings-avatar {
+  color: #ffffff;
+  font-size: 17px;
+  font-weight: 700;
+  background: linear-gradient(145deg, var(--maer-blue), var(--maer-cyan));
+  box-shadow: inset 0 0 0 2px rgb(255 255 255 / 18%);
+}
+
+#maer-side-panel {
+  position: absolute;
+  z-index: 4;
+  inset: 0 auto 0 var(--maer-rail-width);
+  display: flex;
+  width: min(var(--maer-sidebar-width), calc(100vw - var(--maer-rail-width)));
+  flex-direction: column;
+  color: var(--maer-text);
+  background: var(--maer-panel);
+  border-inline-end: 1px solid var(--maer-border);
+  box-shadow: 12px 0 34px var(--maer-shadow);
+  pointer-events: auto;
+}
+
+#maer-side-panel[hidden],
+#maer-toast[hidden],
+.maer-media-test[hidden] {
+  display: none !important;
+}
+
+#maer-side-panel > header {
+  display: flex;
+  min-height: 72px;
+  flex: 0 0 72px;
+  align-items: center;
+  gap: 12px;
+  padding: 0 16px;
+  background: var(--maer-panel-header);
+  border-bottom: 1px solid var(--maer-border);
+}
+
+#maer-side-panel > header button {
+  display: inline-flex;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  color: var(--maer-icon);
+  font-size: 23px;
+  background: transparent;
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+#maer-side-panel > header button:hover {
+  color: var(--maer-cyan);
+  background: var(--maer-panel-active);
+}
+
+#maer-side-panel > header h2 {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  font-size: 22px;
+  font-weight: 650;
+  letter-spacing: -0.025em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#maer-side-panel > [data-maer-panel-content] {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-color: var(--maer-muted) transparent;
+  scrollbar-width: thin;
+}
+
+.maer-account-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 20px;
+  background: linear-gradient(135deg, var(--maer-panel-header), var(--maer-panel));
+  border-bottom: 1px solid var(--maer-border);
+}
+
+.maer-settings-avatar {
+  display: inline-flex;
+  width: 56px;
+  height: 56px;
+  flex: 0 0 56px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+
+.maer-account-card > div {
+  min-width: 0;
+}
+
+.maer-account-card strong,
+.maer-account-card small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.maer-account-card strong {
+  color: var(--maer-text);
+  font-size: 16px;
+  line-height: 22px;
+}
+
+.maer-account-card small {
+  margin-top: 3px;
+  color: var(--maer-muted);
+  font-size: 12px;
+}
+
+.maer-panel-section {
+  padding: 20px;
+  border-bottom: 1px solid var(--maer-border);
+}
+
+.maer-panel-section h3 {
+  margin: 0 0 12px;
+  color: var(--maer-blue);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.035em;
+  text-transform: uppercase;
+}
+
+.maer-about-product strong,
+.maer-about-product small {
+  display: block;
+}
+
+.maer-about-product strong {
+  color: var(--maer-text);
+  font-size: 15px;
+}
+
+.maer-about-product small,
+.maer-legal-location,
+.maer-license-details li span {
+  color: var(--maer-muted);
+  font-size: 12px;
+}
+
+.maer-license-details {
+  margin-top: 14px;
+  color: var(--maer-text);
+}
+
+.maer-license-details summary {
+  color: var(--maer-cyan);
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.maer-license-details ul {
+  display: grid;
+  gap: 9px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.maer-license-details li strong,
+.maer-license-details li span {
+  display: block;
+}
+
+.maer-legal-location {
+  margin-top: 14px !important;
+}
+
+.maer-panel-section p,
+.maer-empty-state {
+  margin: 0 0 14px;
+  color: var(--maer-muted);
+  font-size: 13px;
+  line-height: 19px;
+}
+
+.maer-calls-intro {
+  text-align: center;
+}
+
+.maer-feature-icon {
+  display: inline-flex;
+  width: 64px;
+  height: 64px;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12px;
+  color: var(--maer-cyan);
+  background: var(--maer-accent-soft);
+  border-radius: 50%;
+}
+
+.maer-feature-icon svg {
+  width: 30px;
+  height: 30px;
+  fill: currentcolor;
+}
+
+.maer-calls-intro h3 {
+  color: var(--maer-text);
+  font-size: 17px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.maer-setting-row {
+  display: flex;
+  min-height: 54px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 0 -10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.maer-setting-row:hover {
+  background: var(--maer-panel-hover);
+}
+
+.maer-setting-row > span {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.maer-setting-row strong,
+.maer-setting-row small {
+  display: block;
+}
+
+.maer-setting-row strong {
+  color: var(--maer-text);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.maer-setting-row small {
+  margin-top: 2px;
+  color: var(--maer-muted);
+  font-size: 12px;
+  line-height: 17px;
+}
+
+.maer-setting-row select {
+  min-width: 110px;
+  height: 38px;
+  padding: 0 30px 0 11px;
+  color: var(--maer-text);
+  background-color: var(--maer-field-bg);
+  border: 1px solid var(--maer-border);
+  border-radius: 9px;
+}
+
+.maer-setting-row input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+  accent-color: var(--maer-blue);
+}
+
+.maer-primary-action,
+.maer-secondary-action,
+.maer-danger-action,
+.maer-call-row button,
+.maer-media-test button {
+  min-height: 40px;
+  padding: 8px 14px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  border-radius: 9px;
+  cursor: pointer;
+}
+
+.maer-primary-action {
+  color: #ffffff;
+  background: linear-gradient(110deg, var(--maer-blue), var(--maer-cyan));
+  border: 1px solid transparent;
+  box-shadow: 0 3px 10px rgb(0 87 184 / 20%);
+}
+
+.maer-primary-action:hover {
+  filter: brightness(1.08);
+}
+
+.maer-secondary-action,
+.maer-call-row button,
+.maer-media-test button {
+  color: var(--maer-blue);
+  background: var(--maer-accent-soft);
+  border: 1px solid color-mix(in srgb, var(--maer-blue) 28%, transparent);
+}
+
+.maer-secondary-action:hover,
+.maer-call-row button:hover,
+.maer-media-test button:hover {
+  color: var(--maer-cyan);
+  border-color: var(--maer-cyan);
+}
+
+.maer-danger-action {
+  width: calc(100% - 40px);
+  margin: 20px;
+  color: var(--maer-danger);
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--maer-danger) 42%, transparent);
+}
+
+.maer-danger-action:hover {
+  background: color-mix(in srgb, var(--maer-danger) 10%, transparent);
+}
+
+.maer-media-test {
+  margin-top: 14px;
+  padding: 10px;
+  background: var(--maer-panel-header);
+  border: 1px solid var(--maer-border);
+  border-radius: 12px;
+}
+
+.maer-media-test video {
+  display: block;
+  width: 100%;
+  max-height: 220px;
+  object-fit: cover;
+  background: #07141d;
+  border-radius: 9px;
+}
+
+.maer-media-test p {
+  margin: 9px 0;
+}
+
+.maer-call-row {
+  display: flex;
+  min-height: 62px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 -10px;
+  padding: 9px 10px;
+  border-radius: 10px;
+}
+
+.maer-call-row:hover {
+  background: var(--maer-panel-hover);
+}
+
+.maer-call-row > div {
+  min-width: 0;
+}
+
+.maer-call-row strong,
+.maer-call-row small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.maer-call-row strong {
+  color: var(--maer-text);
+  font-size: 13px;
+}
+
+.maer-call-row small {
+  margin-top: 3px;
+  color: var(--maer-muted);
+  font-size: 11px;
+}
+
+.maer-provider-note {
+  background: color-mix(in srgb, var(--maer-accent-soft) 55%, transparent);
+}
+
+#maer-toast {
+  position: absolute;
+  z-index: 6;
+  right: 24px;
+  bottom: 82px;
+  max-width: min(420px, calc(100vw - 120px));
+  padding: 11px 15px;
+  color: var(--maer-text);
+  font-size: 13px;
+  line-height: 19px;
+  background: var(--maer-panel-header);
+  border: 1px solid var(--maer-border);
+  border-inline-start: 4px solid var(--maer-cyan);
+  border-radius: 10px;
+  box-shadow: 0 10px 32px var(--maer-shadow);
+  pointer-events: auto;
+}
+
+/* Main three-column desktop geometry. */
+.conversejs converse-chats.converse-fullscreen.converse-chatboxes {
+  position: fixed;
+  inset: 0 0 0 var(--maer-rail-width) !important;
+  display: flex !important;
+  width: calc(100vw - var(--maer-rail-width)) !important;
+  height: 100vh !important;
+  flex-flow: row nowrap !important;
+  margin: 0 !important;
+  overflow: hidden;
+  background: var(--maer-chat-bg);
+}
+
+.conversejs converse-chats.converse-fullscreen #controlbox {
+  position: relative;
+  flex: 0 0 var(--maer-sidebar-width) !important;
+  width: var(--maer-sidebar-width) !important;
+  min-width: 320px !important;
+  max-width: var(--maer-sidebar-width) !important;
+  height: 100vh !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  background: var(--maer-panel);
+  border: 0 !important;
+  border-inline-end: 1px solid var(--maer-border) !important;
+}
+
+.conversejs converse-chats.converse-fullscreen #controlbox .box-flyout {
+  position: relative;
+  display: flex;
+  width: 100% !important;
+  min-width: 0 !important;
+  height: 100vh !important;
+  flex-direction: column;
+  justify-content: flex-start;
+  background: var(--maer-panel);
+  border: 0 !important;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.conversejs converse-chats.converse-fullscreen .chatbox:not(#controlbox) {
+  position: relative;
+  flex: 1 1 0 !important;
+  width: auto !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  height: 100vh !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  background: var(--maer-chat-bg);
+  border: 0;
+}
+
+.conversejs converse-chats.converse-fullscreen .chatbox:not(#controlbox) .box-flyout {
+  position: relative;
+  width: 100% !important;
+  min-width: 0 !important;
+  height: 100vh !important;
+  background: var(--maer-chat-bg);
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* Account header and conversation list. */
+.conversejs #controlbox converse-user-profile {
+  display: block;
+  min-height: 72px;
+  flex: 0 0 auto;
+  padding: 9px 14px 8px;
+  color: var(--maer-text);
+  background: var(--maer-panel-header);
+  border: 0;
+  border-bottom: 1px solid var(--maer-border);
+}
+
+.conversejs #controlbox converse-user-profile .userinfo,
+.conversejs #controlbox converse-user-profile .profile {
+  min-width: 0;
+}
+
+.conversejs #controlbox converse-user-profile .profile {
+  min-height: 44px;
+  margin: 0;
+  align-items: center;
+}
+
+.conversejs #controlbox converse-user-profile .show-profile {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  align-items: center;
+  color: var(--maer-text) !important;
+  text-decoration: none;
+}
+
+.conversejs #controlbox converse-user-profile .avatar {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  border-radius: 50%;
+}
+
+.conversejs #controlbox converse-user-profile .username {
+  min-width: 0;
+  margin: 0 10px;
+  overflow: hidden;
+  color: var(--maer-text);
+  font-size: 15px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.conversejs #controlbox converse-user-profile .xmpp-status {
+  height: 17px;
+  margin: -17px 0 0 54px;
+  overflow: hidden;
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.conversejs #controlbox converse-user-profile .change-status,
+.conversejs #controlbox converse-user-profile .xmpp-status__msg {
+  color: var(--maer-muted) !important;
+}
+
+.conversejs #controlbox converse-controlbox-buttons .btn-toolbar {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 2px;
+  padding: 0;
+}
+
+.conversejs #controlbox converse-controlbox-buttons .btn,
+.conversejs #controlbox .controlbox-heading__btn,
+.conversejs #controlbox .chatbox-btn {
+  display: inline-flex;
+  width: 40px;
+  height: 40px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 !important;
+  color: var(--maer-icon) !important;
+  background: transparent;
+  border: 0;
+  border-radius: 50%;
+}
+
+.conversejs #controlbox converse-controlbox-buttons .btn:hover,
+.conversejs #controlbox .controlbox-heading__btn:hover,
+.conversejs #controlbox .chatbox-btn:hover {
+  color: var(--maer-cyan) !important;
+  background: var(--maer-panel-active);
+}
+
+.conversejs #controlbox converse-controlbox-buttons svg,
+.conversejs #controlbox .controlbox-heading__btn svg,
+.conversejs #controlbox .chatbox-btn svg {
+  fill: currentcolor !important;
+}
+
+.conversejs #controlbox .controlbox-pane {
+  display: block;
+  min-height: 0;
+  flex: 1 1 auto;
+  padding: 0 !important;
+  overflow-x: hidden;
+  overflow-y: auto;
+  color: var(--maer-text);
+  background: var(--maer-panel);
+  scrollbar-color: var(--maer-muted) transparent;
+  scrollbar-width: thin;
+}
+
+.conversejs #controlbox .controlbox-section {
+  margin: 0;
+  padding: 0;
+  background: var(--maer-panel);
+}
+
+.conversejs #controlbox .controlbox-section > .d-flex.controlbox-padded,
+.conversejs #controlbox #chatrooms .controlbox-padded {
+  min-height: 58px;
+  padding: 12px 16px !important;
+}
+
+.conversejs #controlbox .controlbox-heading {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  color: var(--maer-text) !important;
+  font-size: 21px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  line-height: 30px;
+}
+
+.conversejs #controlbox .controlbox-heading .list-toggle,
+.conversejs #controlbox .controlbox-heading .list-toggle:hover,
+.conversejs #controlbox .controlbox-heading .list-toggle .fa {
+  color: var(--maer-text) !important;
+}
+
+.conversejs #converse-roster,
+.conversejs #converse-roster .roster-contacts,
+.conversejs #converse-roster .list-container {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  color: var(--maer-text);
+  background: var(--maer-panel);
+}
+
+.conversejs #converse-roster .items-filter-form,
+.conversejs #converse-roster .roster-filter-form {
+  margin: 0;
+  padding: 7px 12px 10px !important;
+  background: var(--maer-panel);
+}
+
+.conversejs #converse-roster .items-filter-form > div,
+.conversejs #converse-roster .roster-filter-form > div {
+  min-height: 40px;
+  align-items: center;
+  gap: 7px;
+  padding: 0 10px;
+  background: var(--maer-field-bg);
+  border: 1px solid transparent;
+  border-radius: 20px;
+}
+
+.conversejs #converse-roster .filter-by {
+  gap: 5px;
+}
+
+.conversejs #converse-roster input,
+.conversejs #converse-roster select,
+.conversejs #controlbox input[type="search"] {
+  height: 38px;
+  padding: 7px 10px;
+  color: var(--maer-text);
+  background: transparent;
+  border: 0;
+  border-radius: 19px;
+  outline: 0;
+  box-shadow: none;
+}
+
+.conversejs #converse-roster input::placeholder,
+.conversejs #controlbox input::placeholder {
+  color: var(--maer-muted);
+  opacity: 1;
+}
+
+.conversejs #converse-roster .roster-group {
+  margin: 0;
+  padding: 0;
+}
+
+.conversejs #converse-roster .roster-group > .list-toggle,
+.conversejs #converse-roster .roster-contacts .group-toggle {
+  display: flex;
+  width: 100%;
+  min-height: 36px;
+  align-items: center;
+  gap: 5px;
+  margin: 0;
+  padding: 8px 18px 5px !important;
+  color: var(--maer-muted) !important;
+  font-family: var(--normal-font);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.035em;
+  line-height: 18px;
+  text-transform: uppercase;
+}
+
+.conversejs #converse-roster .roster-group > .list-toggle .fa,
+.conversejs #converse-roster .roster-contacts .group-toggle .fa {
+  color: var(--maer-cyan) !important;
+}
+
+.conversejs #converse-roster .roster-group-contacts {
+  margin: 0;
+  padding: 0;
+}
+
+.conversejs #converse-roster .roster-group-contacts .list-item,
+.conversejs #converse-roster converse-roster-contact {
+  min-height: 72px;
+  margin: 0;
+  padding: 0 !important;
+  color: var(--maer-text);
+  background: var(--maer-panel);
+  border: 0;
+}
+
+.conversejs #converse-roster .roster-group-contacts .list-item {
+  position: relative;
+  height: 72px;
+  align-items: stretch;
+}
+
+.conversejs #converse-roster .roster-group-contacts .list-item::after {
+  position: absolute;
+  right: 12px;
+  bottom: 0;
+  left: 76px;
+  height: 1px;
+  content: "";
+  background: var(--maer-divider);
+}
+
+.conversejs #converse-roster .roster-group-contacts .list-item:hover,
+.conversejs #converse-roster .roster-group-contacts .list-item.open,
+.conversejs #converse-roster .roster-group-contacts .list-item:focus-within {
+  background: var(--maer-panel-active);
+}
+
+.conversejs #converse-roster .roster-group-contacts .list-item-link {
+  display: flex;
+  min-width: 0;
+  min-height: 72px;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  padding: 10px 14px;
+  overflow: hidden;
+  color: var(--maer-text) !important;
+  font-size: 16px;
+  line-height: 21px;
+  text-decoration: none;
+}
+
+.conversejs #converse-roster .list-item-link > span:first-child {
+  position: relative;
+  display: inline-flex;
+  width: 50px;
+  height: 50px;
+  flex: 0 0 50px;
+}
+
+.conversejs #converse-roster .avatar {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+}
+
+.conversejs #converse-roster .chat-status--avatar {
+  position: absolute !important;
+  right: -1px;
+  bottom: 0;
+  width: 13px;
+  height: 13px;
+  padding: 1px;
+  background: var(--maer-panel);
+  border: 2px solid var(--maer-panel) !important;
+  border-radius: 50%;
+}
+
+.conversejs #converse-roster .contact-name {
+  min-width: 0;
+  max-width: none !important;
+  flex: 1 1 auto;
+  order: 2;
+  overflow: hidden;
+  color: var(--maer-text);
+  font-weight: 450;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.conversejs #converse-roster .list-item-link.unread-msgs .contact-name {
+  color: var(--maer-text);
+  font-weight: 650;
+}
+
+.conversejs #converse-roster .msgs-indicator {
+  min-width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+  order: 3;
+  margin: 0 2px 0 auto;
+  padding: 1px 6px;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+  background: linear-gradient(110deg, var(--maer-blue), var(--maer-cyan));
+  border-radius: 10px;
+}
+
+.conversejs #converse-roster .contact-actions {
+  position: absolute;
+  z-index: 2;
+  top: 16px;
+  right: 8px;
+  opacity: 0;
+}
+
+.conversejs #converse-roster .list-item:hover .contact-actions,
+.conversejs #converse-roster .list-item:focus-within .contact-actions {
+  opacity: 1;
+}
+
+.conversejs #chatrooms .items-list .list-item,
+.conversejs converse-rooms-list .items-list .list-item {
+  min-height: 58px;
+  margin: 0;
+  padding: 0 14px !important;
+  color: var(--maer-text);
+  background: var(--maer-panel);
+  border-bottom: 1px solid var(--maer-divider);
+}
+
+.conversejs #chatrooms .items-list .list-item:hover,
+.conversejs converse-rooms-list .items-list .list-item:hover {
+  background: var(--maer-panel-hover);
+}
+
+.conversejs #chatrooms a,
+.conversejs converse-rooms-list a {
+  color: var(--maer-text) !important;
+}
+
+/* Active conversation header; generic action styling includes MAER call buttons. */
+.conversejs .chatbox:not(#controlbox) .chat-head {
+  min-height: 72px;
+  flex: 0 0 72px;
+  align-items: center;
+  padding: 0 14px;
+  color: var(--maer-text);
+  background: var(--maer-panel-header);
+  border: 0 !important;
+  border-bottom: 1px solid var(--maer-border) !important;
+}
+
+.conversejs .chatbox .chat-head .chatbox-title {
+  min-width: 0;
+  align-items: center;
+  padding: 0 !important;
+}
+
+.conversejs .chatbox .chat-head .chatbox-title--row {
+  min-width: 0;
+  align-items: center;
+}
+
+.conversejs .chatbox .chat-head .avatar {
+  width: 48px;
+  height: 48px;
+  margin-inline-end: 12px;
+  border-radius: 50%;
+}
+
+.conversejs .chatbox .chat-head .chatbox-title__text,
+.conversejs .chatbox .chat-head .chatbox-title__text:hover,
+.conversejs .chatbox .chat-head .chatbox-title__text a,
+.conversejs .chatbox .chat-head .chat-head__desc {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--maer-text) !important;
+  font-size: 17px;
+  font-weight: 650;
+  line-height: 23px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.conversejs .chatbox .chat-head .chat-head__desc {
+  position: absolute;
+  bottom: 9px;
+  left: 75px;
+  max-width: calc(100% - 300px);
+  margin: 0;
+  padding: 0;
+  color: var(--maer-muted) !important;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 17px;
+}
+
+.conversejs .chatbox .chat-head .chatbox-title__buttons {
+  display: flex;
+  flex: 0 0 auto;
+  flex-flow: row-reverse nowrap;
+  align-items: center;
+  gap: 4px;
+  margin-inline-start: 12px;
+}
+
+.conversejs .chatbox .chat-head .chatbox-btn,
+.conversejs .chatbox .chat-head button,
+.conversejs .chatbox .chat-head [role="button"] {
+  display: inline-flex;
+  width: 42px;
+  height: 42px;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0 !important;
+  color: var(--maer-icon) !important;
+  background: transparent;
+  border: 0;
+  border-radius: 50%;
+}
+
+.conversejs .chatbox .chat-head .chatbox-btn:hover,
+.conversejs .chatbox .chat-head button:hover,
+.conversejs .chatbox .chat-head [role="button"]:hover {
+  color: var(--maer-cyan) !important;
+  background: var(--maer-panel-active);
+}
+
+.conversejs .chatbox .chat-head svg,
+.conversejs .chatbox .chat-head converse-icon svg {
+  fill: currentcolor !important;
+}
+
+.conversejs .chatbox .chat-head .maer-audio-call converse-icon,
+.conversejs .chatbox .chat-head .maer-video-call converse-icon,
+.conversejs .chatbox .chat-head .maer-screen-call converse-icon {
+  display: none;
+}
+
+.conversejs .chatbox .chat-head .maer-audio-call::before,
+.conversejs .chatbox .chat-head .maer-video-call::before,
+.conversejs .chatbox .chat-head .maer-screen-call::before {
+  display: block;
+  width: 22px;
+  height: 22px;
+  content: "";
+  background: currentcolor;
+  mask-position: center;
+  mask-repeat: no-repeat;
+  mask-size: contain;
+  -webkit-mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-size: contain;
+}
+
+.conversejs .chatbox .chat-head .maer-audio-call::before {
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M6.6 10.8a15.6 15.6 0 0 0 6.6 6.6l2.2-2.2c.3-.3.8-.4 1.2-.2 1.3.5 2.7.8 4.2.8.7 0 1.2.5 1.2 1.2v3.8c0 .7-.5 1.2-1.2 1.2C10.4 22 2 13.6 2 3.2 2 2.5 2.5 2 3.2 2H7c.7 0 1.2.5 1.2 1.2 0 1.5.3 2.9.8 4.2.1.4.1.9-.2 1.2l-2.2 2.2z'/%3E%3C/svg%3E");
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M6.6 10.8a15.6 15.6 0 0 0 6.6 6.6l2.2-2.2c.3-.3.8-.4 1.2-.2 1.3.5 2.7.8 4.2.8.7 0 1.2.5 1.2 1.2v3.8c0 .7-.5 1.2-1.2 1.2C10.4 22 2 13.6 2 3.2 2 2.5 2.5 2 3.2 2H7c.7 0 1.2.5 1.2 1.2 0 1.5.3 2.9.8 4.2.1.4.1.9-.2 1.2l-2.2 2.2z'/%3E%3C/svg%3E");
+}
+
+.conversejs .chatbox .chat-head .maer-video-call::before {
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M4 6h11a2 2 0 0 1 2 2v1.2L22 6.5v11L17 14.8V16a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2zm0 2v8h11V8H4z'/%3E%3C/svg%3E");
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M4 6h11a2 2 0 0 1 2 2v1.2L22 6.5v11L17 14.8V16a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2zm0 2v8h11V8H4z'/%3E%3C/svg%3E");
+}
+
+.conversejs .chatbox .chat-head .maer-screen-call::before {
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M3 4h18a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2h-7v2h3v2H7v-2h3v-2H3a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm0 2v11h18V6H3z'/%3E%3C/svg%3E");
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M3 4h18a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2h-7v2h3v2H7v-2h3v-2H3a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm0 2v11h18V6H3z'/%3E%3C/svg%3E");
+}
+
+/* Subtle MAER wallpaper and compact message bubbles. */
+.conversejs .chatbox:not(#controlbox) .chat-body,
+.conversejs .chatbox:not(#controlbox) .chat-content {
+  min-height: 0;
+  background-color: var(--maer-chat-bg);
+  background-image:
+    radial-gradient(circle at 18px 18px, transparent 0 8px, var(--maer-wallpaper-mark) 8.5px 9.5px, transparent 10px),
+    radial-gradient(circle at 65px 55px, transparent 0 5px, var(--maer-wallpaper-mark) 5.5px 6.5px, transparent 7px),
+    linear-gradient(35deg, transparent 47%, var(--maer-wallpaper-mark) 48% 49%, transparent 50%),
+    linear-gradient(145deg, transparent 47%, var(--maer-wallpaper-mark) 48% 49%, transparent 50%);
+  background-position: 0 0, 0 0, 0 0, 48px 48px;
+  background-size: 96px 96px;
+}
+
+.conversejs .chatbox:not(#controlbox) .chat-body {
+  display: flex;
+  height: auto !important;
+  flex: 1 1 auto;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.conversejs .chatbox:not(#controlbox) .chat-content {
+  display: block;
+  flex: 1 1 auto;
+  padding: 20px clamp(18px, 6vw, 84px) 14px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-color: var(--maer-muted) transparent;
+  scrollbar-width: thin;
+}
+
+.conversejs .chatbox converse-chat-content {
+  display: block;
+  min-height: 100%;
+}
+
+.conversejs .message.chat-msg {
+  display: flex;
+  width: 100%;
+  align-items: flex-end;
+  padding: 2px 0;
+  background: transparent !important;
+}
+
+.conversejs .message.chat-msg:hover,
+.conversejs .message.chat-msg.correcting {
+  background: transparent !important;
+}
+
+.conversejs .message.chat-msg > .show-msg-author-modal {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  margin: 0 7px 2px 0;
+}
+
+.conversejs .message.chat-msg > .show-msg-author-modal .avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+}
+
+.conversejs .message.chat-msg:has(.chat-msg__content--me) > .show-msg-author-modal {
+  display: none;
+}
+
+.conversejs .message.chat-msg .chat-msg__content {
+  display: flex;
+  width: auto !important;
+  max-width: min(72%, 760px);
+  min-width: 72px;
+  flex-direction: column;
+  margin: 0;
+}
+
+.conversejs .message.chat-msg .chat-msg__content--me {
+  align-items: flex-end;
+  margin-inline-start: auto;
+}
+
+.conversejs .message.chat-msg .chat-msg__content:not(.chat-msg__content--me) {
+  align-items: flex-start;
+}
+
+.conversejs .message.chat-msg .chat-msg__message {
+  position: relative;
+  display: flex;
+  width: fit-content !important;
+  max-width: 100%;
+  min-width: 72px;
+  flex-direction: column;
+  padding: 6px 9px 5px;
+  color: var(--maer-text);
+  background: var(--maer-bubble-in);
+  border-radius: 8px;
+  box-shadow: 0 1px 1px var(--maer-shadow);
+}
+
+.conversejs .message.chat-msg .chat-msg__content--me .chat-msg__message {
+  background: var(--maer-bubble-out);
+  border-start-end-radius: 2px;
+}
+
+.conversejs .message.chat-msg .chat-msg__content:not(.chat-msg__content--me) .chat-msg__message {
+  border-start-start-radius: 2px;
+}
+
+.conversejs .message.chat-msg .chat-msg__content--me .chat-msg__message::after,
+.conversejs .message.chat-msg .chat-msg__content:not(.chat-msg__content--me) .chat-msg__message::before {
+  position: absolute;
+  top: 0;
+  width: 0;
+  height: 0;
+  content: "";
+  border-block-end: 8px solid transparent;
+}
+
+.conversejs .message.chat-msg .chat-msg__content:not(.chat-msg__content--me) .chat-msg__message::before {
+  left: -6px;
+  border-inline-end: 7px solid var(--maer-bubble-in);
+}
+
+.conversejs .message.chat-msg .chat-msg__content--me .chat-msg__message::after {
+  right: -6px;
+  border-inline-start: 7px solid var(--maer-bubble-out);
+}
+
+.conversejs .message.chat-msg .chat-msg__heading {
+  display: flex;
+  width: 100%;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+  margin: 0 0 2px;
+  padding: 0;
+  color: var(--maer-muted);
+  font-size: 11px;
+  line-height: 15px;
+}
+
+.conversejs .message.chat-msg .chat-msg__content--me .chat-msg__heading {
+  justify-content: flex-end;
+}
+
+.conversejs .message.chat-msg .chat-msg__content--me .chat-msg__author {
+  display: none;
+}
+
+.conversejs .message.chat-msg .chat-msg__author {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--maer-cyan);
+  font-family: var(--normal-font);
+  font-size: 12px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.conversejs .message.chat-msg .chat-msg__time {
+  flex: 0 0 auto;
+  padding: 0 !important;
+  color: var(--maer-muted) !important;
+  font-size: 10px;
+  line-height: 13px;
+}
+
+.conversejs .message.chat-msg .chat-msg__body--wrapper {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  padding: 0;
+  color: var(--maer-text);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.conversejs .message.chat-msg .chat-msg__text,
+.conversejs .message.chat-msg .chat-msg__subject,
+.conversejs .message.chat-msg .chat-msg__body--wrapper .chat-msg__text {
+  color: var(--maer-text) !important;
+  font-size: 14.5px;
+  line-height: 20px;
+}
+
+.conversejs .message.chat-msg .chat-msg__text a {
+  color: var(--maer-link) !important;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.conversejs .message.chat-msg .chat-msg__receipt,
+.conversejs .message.chat-msg .fa-check,
+.conversejs .message.chat-msg .fa-check-double {
+  color: var(--maer-cyan) !important;
+}
+
+.conversejs .message.chat-msg converse-message-actions button {
+  color: var(--maer-icon);
+  background: var(--maer-bubble-in);
+  border-radius: 12px;
+}
+
+.conversejs .message.date-separator,
+.conversejs .message.separator {
+  height: 34px;
+  margin: 10px 0;
+  text-align: center;
+}
+
+.conversejs .message.date-separator hr,
+.conversejs .message.separator hr {
+  display: none;
+}
+
+.conversejs .message.date-separator .separator-text,
+.conversejs .message.separator .separator-text,
+.conversejs .separator-text {
+  display: inline-flex;
+  min-height: 26px;
+  align-items: center;
+  padding: 4px 10px;
+  color: var(--maer-muted);
+  font-size: 11px;
+  font-weight: 550;
+  line-height: 18px;
+  background: var(--maer-panel-header);
+  border-radius: 8px;
+  box-shadow: 0 1px 1px var(--maer-shadow);
+}
+
+.conversejs .message.chat-info {
+  width: fit-content;
+  max-width: 86%;
+  margin: 6px auto;
+  padding: 5px 10px;
+  color: var(--maer-muted);
+  background: var(--maer-panel-header);
+  border-radius: 8px;
+  box-shadow: 0 1px 1px var(--maer-shadow);
+}
+
+/* One-line compose surface: tools, rounded input, send action. */
+.conversejs .chatbox converse-chat-bottom-panel,
+.conversejs .chatbox .bottom-panel {
+  position: relative;
+  display: block;
+  flex: 0 0 auto;
+  padding: 8px 10px;
+  color: var(--maer-text);
+  background: var(--maer-composer-bg) !important;
+  border: 0;
+  border-top: 1px solid var(--maer-border);
+}
+
+.conversejs .chatbox .bottom-panel .chat-message-form,
+.conversejs .chatbox .chat-message-form {
+  display: grid;
+  width: 100%;
+  min-height: 46px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-rows: auto;
+  align-items: end;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+}
+
+.conversejs .chatbox .chat-message-form > converse-chat-toolbar {
+  display: contents !important;
+}
+
+.conversejs .chatbox .chat-message-form converse-chat-toolbar > .toolbar-buttons {
+  display: flex;
+  min-height: 44px;
+  grid-row: 1;
+  grid-column: 1;
+  align-items: center;
+  gap: 1px;
+}
+
+.conversejs .chatbox .chat-message-form converse-chat-toolbar > span:last-child {
+  display: flex;
+  min-height: 44px;
+  grid-row: 1;
+  grid-column: 3;
+  align-items: center;
+}
+
+.conversejs .chatbox .chat-message-form .spoiler-hint {
+  width: 100%;
+  grid-row: 2;
+  grid-column: 1 / -1;
+}
+
+.conversejs .chatbox .chat-textarea,
+.conversejs .chatbox .chat-message-form textarea {
+  width: 100%;
+  min-height: 44px;
+  max-height: 148px;
+  grid-row: 1;
+  grid-column: 2;
+  align-self: center;
+  margin: 0;
+  padding: 11px 16px 10px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  color: var(--maer-text);
+  font-family: var(--normal-font);
+  font-size: 15px;
+  line-height: 22px;
+  background: var(--maer-field-bg) !important;
+  border: 1px solid transparent !important;
+  border-radius: 22px !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+  resize: none;
+}
+
+.conversejs .chatbox .chat-textarea::placeholder,
+.conversejs .chatbox .chat-message-form textarea::placeholder {
+  color: var(--maer-muted);
+  opacity: 1;
+}
+
+.conversejs .chatbox .chat-textarea:focus,
+.conversejs .chatbox .chat-message-form textarea:focus {
+  border-color: var(--maer-focus) !important;
+  box-shadow: 0 0 0 1px var(--maer-focus) !important;
+}
+
+.conversejs .chatbox converse-chat-toolbar,
+.conversejs .chatbox converse-chat-toolbar .btn-toolbar,
+.conversejs .chatbox converse-chat-toolbar .toolbar-buttons {
+  color: var(--maer-icon);
+  background: transparent !important;
+}
+
+.conversejs .chatbox converse-chat-toolbar button,
+.conversejs .chatbox .chat-message-form .btn {
+  display: inline-flex;
+  width: 40px;
+  height: 40px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 !important;
+  color: var(--maer-icon) !important;
+  background: transparent;
+  border: 0;
+  border-radius: 50%;
+}
+
+.conversejs .chatbox converse-chat-toolbar button:hover,
+.conversejs .chatbox .chat-message-form .btn:hover {
+  color: var(--maer-cyan) !important;
+  background: var(--maer-panel-active);
+}
+
+.conversejs .chatbox converse-chat-toolbar button svg,
+.conversejs .chatbox converse-chat-toolbar converse-icon svg {
+  fill: currentcolor !important;
+}
+
+.conversejs .chatbox converse-chat-toolbar .send-button,
+.conversejs .chatbox .chat-message-form .send-button {
+  width: 44px;
+  height: 44px;
+  color: #ffffff !important;
+  background: linear-gradient(135deg, var(--maer-blue), var(--maer-cyan)) !important;
+  box-shadow: 0 1px 2px var(--maer-shadow);
+}
+
+.conversejs .chatbox converse-chat-toolbar .send-button:hover,
+.conversejs .chatbox .chat-message-form .send-button:hover {
+  filter: brightness(1.1);
+}
+
+.conversejs .chatbox converse-chat-toolbar .send-button svg,
+.conversejs .chatbox .chat-message-form .send-button svg {
+  fill: #ffffff !important;
+}
+
+.conversejs converse-reply-preview .reply-preview {
+  margin: -2px 0 7px;
+  padding: 8px 12px;
+  color: var(--maer-text);
+  background: var(--maer-field-bg);
+  border: 0;
+  border-inline-start: 4px solid var(--maer-cyan);
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+/* Shared themed surfaces. */
+.conversejs .modal-content,
+.conversejs .dropdown-menu,
+.conversejs .popover,
+.conversejs converse-emoji-picker,
+.conversejs .list-group-item,
+.conversejs .card {
+  color: var(--maer-text);
+  background: var(--maer-panel);
+  border-color: var(--maer-border);
+}
+
+.conversejs .modal-content,
+.conversejs .dropdown-menu,
+.conversejs .popover {
+  border: 1px solid var(--maer-border);
+  border-radius: 12px;
+  box-shadow: 0 12px 34px var(--maer-shadow);
+}
+
+.conversejs .dropdown-item,
+.conversejs .modal-content label,
+.conversejs .modal-content .form-label,
+.conversejs .modal-title {
+  color: var(--maer-text);
+}
+
+.conversejs .dropdown-item:hover,
+.conversejs .dropdown-item:focus,
+.conversejs .list-group-item:hover {
+  color: var(--maer-text);
+  background: var(--maer-panel-hover);
+}
+
+.conversejs .form-control,
+.conversejs .form-select,
+.conversejs .modal-content input,
+.conversejs .modal-content textarea,
+.conversejs .modal-content select {
+  color: var(--maer-text);
+  background-color: var(--maer-field-bg);
+  border-color: var(--maer-border);
+}
+
+.conversejs .btn-primary {
+  color: #ffffff;
+  background: var(--maer-blue);
+  border-color: var(--maer-blue);
+}
+
+.conversejs .btn-primary:hover,
+.conversejs .btn-primary:focus {
+  color: #ffffff;
+  background: var(--maer-blue-hover);
+  border-color: var(--maer-blue-hover);
+}
+
+.conversejs .btn-secondary {
+  color: var(--maer-text);
+  background: var(--maer-panel-active);
+  border-color: var(--maer-border);
+}
+
+:where(.conversejs, #maer-desktop-shell) :where(button, a, input, textarea, select, [role="button"]):focus-visible {
+  outline: 2px solid var(--maer-focus) !important;
+  outline-offset: 2px;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--maer-muted) 55%, transparent);
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: content-box;
+}
+
+@media (max-width: 1180px) {
+  :root {
+    --maer-sidebar-width: 360px;
+  }
+
+  .conversejs .message.chat-msg .chat-msg__content {
+    max-width: min(78%, 700px);
+  }
+}
+
+@media (max-width: 920px) {
+  :root {
+    --maer-sidebar-width: 330px;
+  }
+
+  .conversejs .chatbox:not(#controlbox) .chat-content {
+    padding-inline: 24px;
+  }
+
+  .conversejs .chatbox .chat-head .chat-head__desc {
+    max-width: calc(100% - 250px);
+  }
+}
+
+@media (max-width: 767.98px) {
+  .conversejs converse-chats.converse-fullscreen.converse-chatboxes {
+    justify-content: flex-start;
+  }
+
+  .conversejs converse-chats.converse-fullscreen #controlbox,
+  .conversejs converse-chats.converse-fullscreen .chatbox:not(#controlbox) {
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+    flex-basis: 100% !important;
+  }
+
+  .conversejs.converse-fullscreen .converse-chatboxes .chatbox .box-flyout,
+  .conversejs.converse-fullscreen .converse-chatboxes #controlbox .box-flyout,
+  .conversejs converse-chats.converse-fullscreen .chatbox .box-flyout {
+    left: 0 !important;
+    width: 100% !important;
+    min-width: 100% !important;
+    height: 100vh !important;
+  }
+
+  .conversejs converse-chats.converse-fullscreen .chat-head converse-controlbox-navback {
+    display: inline-flex;
+    margin: 0 10px 0 0;
+  }
+
+  .conversejs .message.chat-msg .chat-msg__content {
+    max-width: 84%;
+  }
+}
+
+@media (max-width: 540px) {
+  .conversejs .chatbox:not(#controlbox) .chat-head {
+    min-height: 64px;
+    flex-basis: 64px;
+    padding-inline: 10px;
+  }
+
+  .conversejs .chatbox .chat-head .avatar {
+    width: 42px;
+    height: 42px;
+    margin-inline-end: 8px;
+  }
+
+  .conversejs .chatbox .chat-head .chat-head__desc {
+    display: none;
+  }
+
+  .conversejs .chatbox .chat-head .chatbox-title__buttons {
+    gap: 0;
+    margin-inline-start: 4px;
+  }
+
+  .conversejs .chatbox .chat-head .chatbox-btn,
+  .conversejs .chatbox .chat-head button,
+  .conversejs .chatbox .chat-head [role="button"] {
+    width: 38px;
+    height: 38px;
+  }
+
+  .conversejs .chatbox:not(#controlbox) .chat-content {
+    padding: 14px 12px 10px;
+  }
+
+  .conversejs .message.chat-msg .chat-msg__content {
+    max-width: 90%;
+  }
+
+  .conversejs .chatbox converse-chat-bottom-panel,
+  .conversejs .chatbox .bottom-panel {
+    padding-inline: 7px;
+  }
+
+  .conversejs .chatbox .chat-message-form converse-chat-toolbar button,
+  .conversejs .chatbox .chat-message-form .btn {
+    width: 36px;
+    height: 40px;
+  }
+}
+
+/* WhatsApp-like conversation-list heading injected by the MAER desktop shell. */
+#maer-conversation-sidebar {
+  display: flex;
+  min-width: 0;
+  flex: 0 0 auto;
+  flex-direction: column;
+  color: var(--maer-text);
+  background: var(--maer-panel);
+  border-bottom: 1px solid var(--maer-border);
+}
+
+.maer-conversation-titlebar {
+  display: flex;
+  min-height: 66px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px 8px 18px;
+  background: var(--maer-panel);
+}
+
+.maer-conversation-titlebar h1 {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--maer-text);
+  font-size: 23px;
+  font-weight: 680;
+  letter-spacing: -0.03em;
+  line-height: 32px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.maer-conversation-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 4px;
+}
+
+.maer-new-chat-button,
+.maer-conversation-actions button {
+  display: inline-flex;
+  width: 42px;
+  height: 42px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  color: var(--maer-icon);
+  background: transparent;
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: color 120ms ease, background-color 120ms ease, transform 120ms ease;
+}
+
+.maer-new-chat-button {
+  color: #ffffff;
+  background: linear-gradient(135deg, var(--maer-blue), var(--maer-cyan));
+  box-shadow: 0 3px 10px rgb(0 87 184 / 22%);
+}
+
+.maer-new-chat-button:hover {
+  color: #ffffff;
+  filter: brightness(1.1);
+}
+
+.maer-conversation-actions button:not(.maer-new-chat-button):hover {
+  color: var(--maer-cyan);
+  background: var(--maer-panel-active);
+}
+
+.maer-new-chat-button:active,
+.maer-conversation-actions button:active {
+  transform: scale(0.96);
+}
+
+.maer-new-chat-button svg,
+.maer-conversation-actions button svg {
+  width: 21px;
+  height: 21px;
+  fill: currentcolor;
+}
+
+.maer-conversation-search {
+  position: relative;
+  display: flex;
+  height: 42px;
+  flex: 0 0 42px;
+  align-items: center;
+  margin: 0 12px 9px;
+  color: var(--maer-muted);
+  background: var(--maer-panel-header);
+  border: 1px solid transparent;
+  border-radius: 21px;
+  transition: border-color 120ms ease, box-shadow 120ms ease, background-color 120ms ease;
+}
+
+.maer-conversation-search:focus-within {
+  border-color: var(--maer-focus);
+  box-shadow: 0 0 0 1px var(--maer-focus);
+}
+
+.maer-conversation-search > svg {
+  position: absolute;
+  z-index: 1;
+  left: 14px;
+  width: 18px;
+  height: 18px;
+  fill: currentcolor;
+  pointer-events: none;
+}
+
+.maer-conversation-search input {
+  width: 100%;
+  height: 40px;
+  padding: 8px 42px 8px 42px;
+  color: var(--maer-text);
+  font: inherit;
+  font-size: 14px;
+  line-height: 22px;
+  background: transparent;
+  border: 0;
+  border-radius: 20px;
+  outline: 0;
+}
+
+.maer-conversation-search input::placeholder {
+  color: var(--maer-muted);
+  opacity: 1;
+}
+
+.maer-search-clear {
+  position: absolute;
+  right: 5px;
+  display: inline-flex;
+  width: 32px;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  color: var(--maer-muted);
+  background: transparent;
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.maer-search-clear:hover {
+  color: var(--maer-cyan);
+  background: var(--maer-panel-active);
+}
+
+.maer-search-clear svg {
+  width: 15px;
+  height: 15px;
+  fill: currentcolor;
+}
+
+.maer-conversation-filters {
+  display: flex;
+  min-height: 43px;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px 10px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+.maer-conversation-filters::-webkit-scrollbar {
+  display: none;
+}
+
+.maer-filter-chip {
+  display: inline-flex;
+  min-width: max-content;
+  min-height: 34px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 13px;
+  color: var(--maer-muted);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 20px;
+  background: var(--maer-panel);
+  border: 1px solid var(--maer-border);
+  border-radius: 17px;
+  cursor: pointer;
+  transition: color 120ms ease, background-color 120ms ease, border-color 120ms ease;
+}
+
+.maer-filter-chip:hover {
+  color: var(--maer-text);
+  background: var(--maer-panel-hover);
+  border-color: color-mix(in srgb, var(--maer-cyan) 52%, var(--maer-border));
+}
+
+.maer-filter-chip.is-active {
+  color: var(--maer-blue);
+  background: var(--maer-accent-soft);
+  border-color: color-mix(in srgb, var(--maer-blue) 36%, transparent);
+}
+
+.maer-filter-count {
+  display: inline-flex;
+  min-width: 20px;
+  height: 20px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 6px;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 750;
+  line-height: 20px;
+  background: linear-gradient(120deg, var(--maer-blue), var(--maer-cyan));
+  border-radius: 10px;
+}
+
+.maer-filter-chip.is-active .maer-filter-count {
+  box-shadow: 0 1px 2px rgb(0 87 184 / 20%);
+}
+
+/* Converse's generic chatbox controls have high specificity. Keep the custom
+   discussion header's geometry and MAER colors authoritative. */
+.conversejs #controlbox #maer-conversation-sidebar .maer-new-chat-button {
+  color: #ffffff !important;
+  background: linear-gradient(135deg, var(--maer-blue), var(--maer-cyan)) !important;
+  border-radius: 50% !important;
+}
+
+.conversejs #controlbox #maer-conversation-sidebar .maer-conversation-search {
+  background: var(--maer-panel-header) !important;
+  border-radius: 21px !important;
+}
+
+.conversejs #controlbox #maer-conversation-sidebar .maer-conversation-search input[type="search"] {
+  width: 100%;
+  height: 40px;
+  padding: 8px 42px !important;
+  font-size: 14px;
+  border-radius: 20px !important;
+}
+
+.conversejs #controlbox #maer-conversation-sidebar .maer-filter-chip {
+  min-height: 34px;
+  color: var(--maer-muted);
+  font-size: 13px !important;
+  background: var(--maer-panel);
+  border: 1px solid var(--maer-border);
+  border-radius: 17px !important;
+}
+
+.conversejs #controlbox #maer-conversation-sidebar .maer-filter-chip.is-active {
+  color: var(--maer-blue);
+  background: var(--maer-accent-soft);
+  border-color: color-mix(in srgb, var(--maer-blue) 36%, transparent);
+}
+
+.maer-filter-empty {
+  margin: 10px 14px 18px;
+  padding: 22px 18px;
+  color: var(--maer-muted);
+  font-size: 13px;
+  line-height: 19px;
+  text-align: center;
+  background: var(--maer-panel-header);
+  border: 1px dashed var(--maer-border);
+  border-radius: 12px;
+}
+
+.maer-filter-empty[hidden],
+.maer-search-clear[hidden],
+.maer-filter-hidden {
+  display: none !important;
+}
+
+body.maer-conversation-sidebar-ready #controlbox converse-user-profile,
+body.maer-conversation-sidebar-ready #converse-roster > converse-roster > .d-flex.controlbox-padded,
+body.maer-conversation-sidebar-ready #converse-roster .controlbox-heading--contacts,
+body.maer-conversation-sidebar-ready #converse-roster .dropdown--contacts,
+body.maer-conversation-sidebar-ready #converse-roster .maer-default-group-heading,
+body.maer-conversation-sidebar-ready #converse-roster .roster-group[data-group="Sans groupe" i] > .group-toggle,
+body.maer-conversation-sidebar-ready #converse-roster .roster-group[data-group="Ungrouped" i] > .group-toggle,
+body.maer-conversation-sidebar-ready #chatrooms.maer-section-empty {
+  display: none !important;
+}
+
+body.maer-conversation-sidebar-ready #controlbox .controlbox-pane {
+  flex: 1 1 auto;
+  padding-top: 0 !important;
+}
+
+@media (max-width: 540px) {
+  .maer-conversation-titlebar {
+    min-height: 62px;
+    padding-inline: 14px 10px;
+  }
+
+  .maer-conversation-titlebar h1 {
+    font-size: 21px;
+  }
+
+  .maer-new-chat-button,
+  .maer-conversation-actions button {
+    width: 40px;
+    height: 40px;
+  }
+
+  .maer-filter-chip {
+    min-height: 32px;
+    padding: 5px 11px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #maer-desktop-shell *,
+  .conversejs * {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

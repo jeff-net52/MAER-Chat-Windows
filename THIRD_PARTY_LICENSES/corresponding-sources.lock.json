@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "components": [
+    {
+      "name": "converse.js",
+      "version": "14.0.0",
+      "license": "MPL-2.0",
+      "npm": {
+        "url": "https://registry.npmjs.org/converse.js/-/converse.js-14.0.0.tgz",
+        "integrity": "sha512-LFUg030jDalV47vI/vyVPqYPZfJYXFbubq8v0cFDe2zXNeeGEk3Up0Fj/WTzT6t+6do+cAIToy73eAj7RNDj2Q==",
+        "sha1": "f48861cb8dbfa2e9b2b011471d31de376f73da2f",
+        "gitHead": "c9d0c14542245da23959080fe73b85c62a77d30e"
+      }
+    },
+    {
+      "name": "libomemo.js",
+      "version": "2.0.2",
+      "license": "GPL-3.0-only",
+      "npm": {
+        "url": "https://registry.npmjs.org/libomemo.js/-/libomemo.js-2.0.2.tgz",
+        "integrity": "sha512-Ou12YU18wq0eCvTCbKl+ivFrSp8IgOf2nmj4SpGN52vHViPn/CysAODm2eN6t20xe52vHyUI6AxlrcoJH6sePg==",
+        "sha1": "6029b4a76dda80a7e7a9ebed89a5f2943aa7527f",
+        "gitHead": "31b51c5d83d63aaa027e70d1dccba7c6453616e2"
+      },
+      "source": {
+        "repository": "https://github.com/conversejs/libomemo.js.git",
+        "commit": "31b51c5d83d63aaa027e70d1dccba7c6453616e2",
+        "archiveSha256": "sha256-beee3d1bbb1fe59043d10a8eb6eb4c83b5ac330353097b63b2da01026eccb318"
+      },
+      "bundledFiles": {
+        "node_modules/converse.js/dist/libomemo.esm.min.js": "sha256-6448add9a8fc67d4b121392ef4086f91a9e6d39dfe907a8ba66bbc2d507d7491",
+        "node_modules/converse.js/dist/curve25519_compiled.wasm": "sha256-3a32503ade92ed2bf522d49d51106a227dadb39c2a7b08a1023c216c7eec1286"
+      }
+    }
+  ]
+}

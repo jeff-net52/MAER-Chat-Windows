@@ -1,0 +1,10 @@
+MAER Password Vault browser extension
+
+This directory contains only the browser-extension side of the integration.
+The Native Messaging host fr.maer.password_vault is not included in this lot.
+
+SPDX-License-Identifier: GPL-3.0-or-later
+Copyright (C) 2026 MAER Chat contributors
+
+The complete project license is distributed at the root of the MAER Chat
+Windows source repository. No third-party runtime library is bundled here.

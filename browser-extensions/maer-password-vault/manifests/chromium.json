@@ -1,0 +1,48 @@
+{
+  "manifest_version": 3,
+  "name": "MAER Chat - Coffre de mots de passe",
+  "short_name": "Coffre MAER",
+  "version": "0.1.0",
+  "description": "Remplissage explicite et securise depuis le coffre local MAER Chat.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAqebxGgRMpY39u8HTgAwz2qMsSABYS25XXbyI0MFRUoU46uzYCuG58+D5oZaVpevXjXKxZ3iPR10T79Jsa0yvcm0pzpeON7dRXyUrzX9i3UYj8EgBh84c77OXfoVlEyGKysc8wouz5CL3bGhxa5TEJkYyQ1bekkUozhGmfXWJaZvyU8RqMYqfFU7pDjoApsrwqUlH2w9k9pmSVALCCGZAeDrvzWqoGAKlcA6cErpPcdknfVAMjc9ZiVCdOwoa/quBOL0wTd57lT6ykW469pYPmCUwVZ/exRbR6PvG/4q/CdbS7GnfxXO45WR6JYT7uxWrEswhLoRRKrmkVkHnk5OdFwIDAQAB",
+  "icons": {
+    "16": "assets/icon-16.png",
+    "32": "assets/icon-32.png",
+    "48": "assets/icon-48.png",
+    "128": "assets/icon-128.png"
+  },
+  "permissions": [
+    "activeTab",
+    "nativeMessaging"
+  ],
+  "host_permissions": [
+    "https://*/*"
+  ],
+  "background": {
+    "service_worker": "background/service-worker.js"
+  },
+  "action": {
+    "default_title": "Coffre MAER",
+    "default_icon": {
+      "16": "assets/icon-16.png",
+      "32": "assets/icon-32.png"
+    },
+    "default_popup": "ui/popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*/*"
+      ],
+      "js": [
+        "content/content-script.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": false,
+      "match_about_blank": false
+    }
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  }
+}
