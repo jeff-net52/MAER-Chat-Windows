@@ -26,6 +26,9 @@ if ([string]::IsNullOrWhiteSpace($localAppData)) {
 $manifestRoot = [IO.Path]::GetFullPath((Join-Path $localAppData 'MAER Chat\NativeMessaging'))
 [IO.Directory]::CreateDirectory($manifestRoot) | Out-Null
 $utf8NoBom = [Text.UTF8Encoding]::new($false)
+$manifestDescription = [Text.Encoding]::UTF8.GetString(
+  [Convert]::FromBase64String('UG9udCBsb2NhbCBzw6ljdXJpc8OpIGR1IGNvZmZyZSBkZSBtb3RzIGRlIHBhc3NlIE1BRVIgQ2hhdA==')
+)
 
 function Write-ManifestAtomically {
   param(
@@ -52,14 +55,14 @@ $manifestPaths = @{
 }
 $chromiumManifest = [ordered]@{
   name = $hostName
-  description = 'Pont local sécurisé du coffre de mots de passe MAER Chat'
+  description = $manifestDescription
   path = $resolvedHost
   type = 'stdio'
   allowed_origins = @($chromiumOrigin)
 }
 $firefoxManifest = [ordered]@{
   name = $hostName
-  description = 'Pont local sécurisé du coffre de mots de passe MAER Chat'
+  description = $manifestDescription
   path = $resolvedHost
   type = 'stdio'
   allowed_extensions = @($firefoxExtension)

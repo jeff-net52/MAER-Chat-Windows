@@ -23,6 +23,7 @@ await assertExternalFile('LICENSE.electron.txt', 900)
 await assertExternalFile('LICENSES.chromium.html', 1_000_000)
 await assertExternalFile('resources/licenses/LICENSE', 30_000)
 await assertExternalFile('resources/licenses/THIRD_PARTY_NOTICES.md', 2_000)
+await assertExternalFile('resources/licenses/TRADEMARK_NOTICE.md', 500)
 await assertExternalFile(
   'resources/licenses/THIRD_PARTY_LICENSES/converse-MPL-2.0.txt',
   15_000,
@@ -75,6 +76,7 @@ console.log(JSON.stringify({
   applicationNotices: [
     'resources/licenses/LICENSE',
     'resources/licenses/THIRD_PARTY_NOTICES.md',
+    'resources/licenses/TRADEMARK_NOTICE.md',
     'resources/licenses/THIRD_PARTY_LICENSES',
   ],
 }))

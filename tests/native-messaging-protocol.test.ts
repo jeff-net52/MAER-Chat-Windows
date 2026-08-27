@@ -32,7 +32,7 @@ function operations(overrides: Partial<NativeVaultOperations> = {}): NativeVault
       username: 'alice',
       password: 'secret',
     })),
-    save: vi.fn(async () => undefined),
+    save: vi.fn(async (input) => ({ credentialId: input.credentialId || 'opaque-saved-id' })),
     generate: vi.fn(async () => 'generated-secret'),
     lock: vi.fn(async () => undefined),
     ...overrides,
@@ -165,5 +165,19 @@ describe('MAER Password Vault Native Messaging protocol', () => {
       ok: true,
       payload: { password: 'safe-generated-value' },
     })
+  })
+
+  it('returns the canonical credential id selected by deduplication', async () => {
+    const parsed = parseNativeVaultRequest(request('vault.save', {
+      credentialId: '',
+      username: 'alice',
+      password: 'secret',
+      label: 'Example',
+    }))
+    const save = vi.fn(async () => ({ credentialId: 'opaque-existing-id' }))
+    const response = await dispatchNativeVaultRequest(operations({ save }), parsed)
+
+    expect(response).toMatchObject({ ok: true, payload: { credentialId: 'opaque-existing-id' } })
+    expect(parseNativeVaultResponse(response, parsed)).toEqual(response)
   })
 })

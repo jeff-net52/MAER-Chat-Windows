@@ -74,10 +74,48 @@ class MemoryOperations implements PasswordVaultOperations {
   async copy(entryId: string) {
     return { entryId, copied: true as const, clearAfterSeconds: 30 }
   }
+  async copyUsername(entryId: string) {
+    return { entryId, usernameCopied: true as const, clearAfterSeconds: 30 }
+  }
+  async reveal(entryId: string) { return { entryId, password: 'revealed-secret' } }
+  async openUrl(entryId: string) { return { entryId, opened: true as const } }
+  async exportBackup() { return { operation: 'export' as const, completed: true, entryCount: this.entries.length } }
+  async importBackup() { return { operation: 'import' as const, completed: true, entryCount: this.entries.length } }
+  async reset() {
+    this.entries = []
+    this.state = { state: 'uninitialized', entryCount: null }
+    return this.state
+  }
   async dispose() { this.disposed = true }
 }
 
 describe('Password Vault serialized main controller', () => {
+  it('fails closed when no main-process reveal confirmation is configured', async () => {
+    const operations = new MemoryOperations()
+    const reveal = vi.spyOn(operations, 'reveal')
+    const controller = new PasswordVaultController(operations)
+
+    await expect(controller.handle(request('reveal', { entryId: ENTRY_ID }))).resolves.toMatchObject({
+      ok: false,
+      error: { code: 'cancelled' },
+    })
+    expect(reveal).not.toHaveBeenCalled()
+  })
+
+  it('requires explicit main-process confirmation before revealing a password', async () => {
+    const operations = new MemoryOperations()
+    const reveal = vi.spyOn(operations, 'reveal')
+    const confirmReveal = vi.fn(async () => false)
+    const controller = new PasswordVaultController(operations, undefined, confirmReveal)
+
+    await expect(controller.handle(request('reveal', { entryId: ENTRY_ID }))).resolves.toMatchObject({
+      ok: false,
+      error: { code: 'cancelled', message: expect.stringMatching(/annul/i) },
+    })
+    expect(confirmReveal).toHaveBeenCalledWith(ENTRY_ID)
+    expect(reveal).not.toHaveBeenCalled()
+  })
+
   it('executes the bounded CRUD/search/generate/copy protocol without secret list fields', async () => {
     const operations = new MemoryOperations()
     const controller = new PasswordVaultController(operations)

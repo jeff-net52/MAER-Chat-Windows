@@ -1,17 +1,35 @@
 // @vitest-environment jsdom
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   installMaerDesktopShell,
   loadDesktopPreferences,
+  MAX_RETAINED_INCOMING_CALLS,
+  registerIncomingCallMessage,
   uninstallMaerDesktopShell,
 } from '../src/renderer/desktop-shell'
 import { RendererPluginRegistry } from '../src/plugins/core/renderer/plugin-registry'
+
+const originalMediaDevices = Object.getOwnPropertyDescriptor(navigator, 'mediaDevices')
+const originalNotification = Object.getOwnPropertyDescriptor(window, 'Notification')
+const originalMaerDesktop = Object.getOwnPropertyDescriptor(window, 'maerDesktop')
 
 describe('WhatsApp-style desktop shell', () => {
   beforeEach(() => {
     localStorage.clear()
     document.documentElement.removeAttribute('data-maer-theme')
     document.body.replaceChildren()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+    uninstallMaerDesktopShell()
+    vi.restoreAllMocks()
+    if (originalMediaDevices) Object.defineProperty(navigator, 'mediaDevices', originalMediaDevices)
+    else Reflect.deleteProperty(navigator, 'mediaDevices')
+    if (originalNotification) Object.defineProperty(window, 'Notification', originalNotification)
+    else Reflect.deleteProperty(window, 'Notification')
+    if (originalMaerDesktop) Object.defineProperty(window, 'maerDesktop', originalMaerDesktop)
+    else Reflect.deleteProperty(window, 'maerDesktop')
   })
 
   it('adds accessible chat, call and settings navigation', () => {
@@ -185,5 +203,291 @@ describe('WhatsApp-style desktop shell', () => {
     expect(document.querySelector('[data-maer-plugin-settings]')?.textContent).toContain(
       'Réglages du plugin',
     )
+  })
+
+  it('closes panels with Escape, exposes rail state and returns focus', () => {
+    installMaerDesktopShell({
+      accountJid: 'alice@xmpp.maer.fr',
+      onLogout: vi.fn(async () => undefined),
+      applyChatPreferences: vi.fn(),
+    })
+    const settings = document.querySelector<HTMLButtonElement>('[data-maer-view="settings"]')
+    settings?.focus()
+    settings?.click()
+
+    expect(settings?.getAttribute('aria-current')).toBe('page')
+    expect(document.querySelector<HTMLElement>('#maer-side-panel')?.hidden).toBe(false)
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    expect(document.querySelector<HTMLElement>('#maer-side-panel')?.hidden).toBe(true)
+    expect(document.activeElement).toBe(settings)
+    expect(document.querySelector('[data-maer-view="chats"]')?.getAttribute('aria-current')).toBe('page')
+  })
+
+  it('stops every acquired media track once when the panel closes', async () => {
+    const audioStop = vi.fn()
+    const videoStop = vi.fn()
+    const stream = {
+      getTracks: () => [{ stop: audioStop }, { stop: videoStop }],
+    } as unknown as MediaStream
+    Object.defineProperty(navigator, 'mediaDevices', {
+      configurable: true,
+      value: { getUserMedia: vi.fn(async () => stream) },
+    })
+    installMaerDesktopShell({
+      accountJid: 'alice@xmpp.maer.fr',
+      onLogout: vi.fn(async () => undefined),
+      applyChatPreferences: vi.fn(),
+    })
+    document.querySelector<HTMLButtonElement>('[data-maer-view="settings"]')?.click()
+    document.querySelector<HTMLButtonElement>('[data-maer-action="test-media"]')?.click()
+    await vi.waitFor(() => {
+      expect(document.querySelector<HTMLVideoElement>('[data-maer-media-test] video')?.srcObject).toBe(stream)
+    })
+
+    document.querySelector<HTMLButtonElement>('[data-maer-action="close-panel"]')?.click()
+    expect(audioStop).toHaveBeenCalledOnce()
+    expect(videoStop).toHaveBeenCalledOnce()
+    expect(document.querySelector<HTMLVideoElement>('[data-maer-media-test] video')?.srcObject).toBeNull()
+  })
+
+  it('stops a late media grant when its panel was already closed', async () => {
+    let resolveStream: ((stream: MediaStream) => void) | undefined
+    const getUserMedia = vi.fn(() => new Promise<MediaStream>((resolve) => {
+      resolveStream = resolve
+    }))
+    Object.defineProperty(navigator, 'mediaDevices', {
+      configurable: true,
+      value: { getUserMedia },
+    })
+    const stop = vi.fn()
+    const stream = { getTracks: () => [{ stop }] } as unknown as MediaStream
+    installMaerDesktopShell({
+      accountJid: 'alice@xmpp.maer.fr',
+      onLogout: vi.fn(async () => undefined),
+      applyChatPreferences: vi.fn(),
+    })
+    document.querySelector<HTMLButtonElement>('[data-maer-view="settings"]')?.click()
+    document.querySelector<HTMLButtonElement>('[data-maer-action="test-media"]')?.click()
+    document.querySelector<HTMLButtonElement>('[data-maer-action="close-panel"]')?.click()
+    resolveStream?.(stream)
+
+    await vi.waitFor(() => expect(stop).toHaveBeenCalledOnce())
+  })
+
+  it('reverts notifications when Windows denies permission', async () => {
+    Object.defineProperty(window, 'Notification', {
+      configurable: true,
+      value: { permission: 'default', requestPermission: vi.fn(async () => 'denied') },
+    })
+    installMaerDesktopShell({
+      accountJid: 'alice@xmpp.maer.fr',
+      onLogout: vi.fn(async () => undefined),
+      applyChatPreferences: vi.fn(),
+    })
+    document.querySelector<HTMLButtonElement>('[data-maer-view="settings"]')?.click()
+    const notifications = document.querySelector<HTMLInputElement>('[data-maer-setting="notifications"]')
+    if (!notifications) throw new Error('Réglage de notifications absent')
+    notifications.checked = true
+    notifications.dispatchEvent(new Event('change', { bubbles: true }))
+
+    await vi.waitFor(() => expect(notifications.checked).toBe(false))
+    expect(loadDesktopPreferences().notifications).toBe(false)
+  })
+
+  it('shows a strict incoming-call prompt and joins only after consent', async () => {
+    const openMeeting = vi.fn(async () => undefined)
+    Object.defineProperty(window, 'maerDesktop', {
+      configurable: true,
+      value: { openMeeting, closeMeeting: vi.fn(async () => undefined) },
+    })
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    installMaerDesktopShell({
+      accountJid: 'alice@xmpp.maer.fr',
+      onLogout: vi.fn(async () => undefined),
+      applyChatPreferences: vi.fn(),
+    })
+    const issued = new Date(Date.now() - 1_000)
+    const expires = new Date(issued.getTime() + 2 * 60 * 60 * 1_000)
+    const room = 'MAER-1234567890123456'
+    const body =
+      `Appel vidéo MAER — Invitation envoyée via la conversation XMPP.\n` +
+      `MAER-CALL/1 mode=video issued=${issued.toISOString()} expires=${expires.toISOString()} room=${room}\n` +
+      `https://meet.jit.si/${room}`
+
+    expect(registerIncomingCallMessage(body, 'bob@xmpp.maer.fr/mobile')).toBe(true)
+    expect(document.querySelector('[data-maer-incoming-call]')?.textContent).toContain('bob@xmpp.maer.fr')
+    document.querySelector<HTMLButtonElement>('[data-maer-action="join-incoming-call"]')?.click()
+
+    await vi.waitFor(() => expect(openMeeting).toHaveBeenCalledWith({
+      url: `https://meet.jit.si/${room}`,
+      mode: 'video',
+      issuedAt: issued.toISOString(),
+      expiresAt: expires.toISOString(),
+      room,
+    }))
+    expect(window.confirm).toHaveBeenCalledOnce()
+  })
+
+  it('blocks unbound MAER meeting hyperlinks instead of delegating them', () => {
+    installMaerDesktopShell({
+      accountJid: 'alice@xmpp.maer.fr',
+      onLogout: vi.fn(async () => undefined),
+      applyChatPreferences: vi.fn(),
+    })
+    const anchor = document.createElement('a')
+    anchor.href = 'https://meet.jit.si/MAER-1234567890123456'
+    document.body.append(anchor)
+    const event = new MouseEvent('click', { bubbles: true, cancelable: true, composed: true })
+
+    expect(anchor.dispatchEvent(event)).toBe(false)
+    expect(document.querySelector('#maer-toast')?.textContent).toMatch(/MAER-CALL\/1/)
+  })
+
+  it.each([
+    'https://meet.jit.si/team-room',
+    'https://meet.jit.si/MAER-1234567890123456?team=1',
+    'https://meet.jit.si/MAER-1234567890123456#unexpected',
+    'https://meet.jit.si:443/MAER-1234567890123456',
+  ])('blocks every generic exact-origin Jitsi link %s', (href) => {
+    installMaerDesktopShell({
+      accountJid: 'alice@xmpp.maer.fr',
+      onLogout: vi.fn(async () => undefined),
+      applyChatPreferences: vi.fn(),
+    })
+    const anchor = document.createElement('a')
+    anchor.setAttribute('href', href)
+    document.body.append(anchor)
+    const event = new MouseEvent('click', { bubbles: true, cancelable: true, composed: true })
+
+    expect(anchor.dispatchEvent(event)).toBe(false)
+    expect(document.querySelector('#maer-toast')?.textContent).toMatch(/bloqu|MAER-CALL/i)
+  })
+
+  it('asks for Jitsi consent again when reopening history after revocation', async () => {
+    const openMeeting = vi.fn(async () => undefined)
+    Object.defineProperty(window, 'maerDesktop', {
+      configurable: true,
+      value: { openMeeting, closeMeeting: vi.fn(async () => undefined) },
+    })
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const expiresAt = new Date(Date.now() + 60_000)
+    localStorage.setItem('maer.desktop.call-history.v1', JSON.stringify([{
+      mode: 'video',
+      targetJid: 'bob@xmpp.maer.fr',
+      meetingUrl: 'https://meet.jit.si/MAER-1234567890123456',
+      startedAt: new Date(expiresAt.getTime() - 2 * 60 * 60 * 1_000).toISOString(),
+      expiresAt: expiresAt.toISOString(),
+      room: 'MAER-1234567890123456',
+    }]))
+    installMaerDesktopShell({
+      accountJid: 'alice@xmpp.maer.fr',
+      onLogout: vi.fn(async () => undefined),
+      applyChatPreferences: vi.fn(),
+    })
+    document.querySelector<HTMLButtonElement>('[data-maer-view="calls"]')?.click()
+    const join = [...document.querySelectorAll<HTMLButtonElement>('.maer-call-row button')]
+      .find((button) => button.textContent === 'Rejoindre')
+    join?.click()
+
+    await vi.waitFor(() => expect(openMeeting).toHaveBeenCalledOnce())
+    expect(confirm).toHaveBeenCalledOnce()
+  })
+
+  it('revalidates history expiration after the Jitsi confirmation', async () => {
+    vi.useFakeTimers()
+    const now = new Date('2026-08-27T12:00:00.000Z')
+    vi.setSystemTime(now)
+    const openMeeting = vi.fn(async () => undefined)
+    Object.defineProperty(window, 'maerDesktop', {
+      configurable: true,
+      value: { openMeeting, closeMeeting: vi.fn(async () => undefined) },
+    })
+    const expiresAt = new Date(now.getTime() + 100)
+    vi.spyOn(window, 'confirm').mockImplementation(() => {
+      vi.setSystemTime(new Date(expiresAt.getTime() + 1))
+      return true
+    })
+    localStorage.setItem('maer.desktop.call-history.v1', JSON.stringify([{
+      mode: 'video',
+      targetJid: 'bob@xmpp.maer.fr',
+      meetingUrl: 'https://meet.jit.si/MAER-1234567890123456',
+      startedAt: new Date(expiresAt.getTime() - 2 * 60 * 60 * 1_000).toISOString(),
+      expiresAt: expiresAt.toISOString(),
+      room: 'MAER-1234567890123456',
+    }]))
+    installMaerDesktopShell({
+      accountJid: 'alice@xmpp.maer.fr',
+      onLogout: vi.fn(async () => undefined),
+      applyChatPreferences: vi.fn(),
+    })
+    document.querySelector<HTMLButtonElement>('[data-maer-view="calls"]')?.click()
+    document.querySelector<HTMLButtonElement>('.maer-call-row button')?.click()
+    await Promise.resolve()
+
+    expect(openMeeting).not.toHaveBeenCalled()
+    expect(document.querySelector('#maer-toast')?.textContent).toMatch(/expir/i)
+  })
+
+  it('removes refused invitations and evicts the oldest entry above the documented bound', () => {
+    installMaerDesktopShell({
+      accountJid: 'alice@xmpp.maer.fr',
+      onLogout: vi.fn(async () => undefined),
+      applyChatPreferences: vi.fn(),
+    })
+    const issued = new Date(Date.now() - 1_000)
+    const expires = new Date(issued.getTime() + 2 * 60 * 60 * 1_000)
+    const bodyFor = (index: number) => {
+      const room = `MAER-${String(index).padStart(16, '0')}`
+      return {
+        room,
+        body:
+          `Appel vidéo MAER — Invitation envoyée via la conversation XMPP.\n` +
+          `MAER-CALL/1 mode=video issued=${issued.toISOString()} expires=${expires.toISOString()} room=${room}\n` +
+          `https://meet.jit.si/${room}`,
+      }
+    }
+    for (let index = 0; index <= MAX_RETAINED_INCOMING_CALLS; index += 1) {
+      expect(registerIncomingCallMessage(bodyFor(index).body, 'bob@xmpp.maer.fr')).toBe(true)
+    }
+    const oldest = document.createElement('a')
+    oldest.href = `https://meet.jit.si/${bodyFor(0).room}`
+    document.body.append(oldest)
+    oldest.click()
+    expect(document.querySelector('#maer-toast')?.textContent).toMatch(/li|valide/i)
+
+    document.querySelector<HTMLButtonElement>('[data-maer-action="refuse-incoming-call"]')?.click()
+    const newest = document.createElement('a')
+    newest.href = `https://meet.jit.si/${bodyFor(MAX_RETAINED_INCOMING_CALLS).room}`
+    document.body.append(newest)
+    newest.click()
+    expect(document.querySelector('#maer-toast')?.textContent).toMatch(/li|valide/i)
+  })
+
+  it('purges retained invitations as soon as they expire', () => {
+    vi.useFakeTimers()
+    const now = new Date('2026-08-27T12:00:00.000Z')
+    vi.setSystemTime(now)
+    installMaerDesktopShell({
+      accountJid: 'alice@xmpp.maer.fr',
+      onLogout: vi.fn(async () => undefined),
+      applyChatPreferences: vi.fn(),
+    })
+    const bodyFor = (room: string, expiresAt: Date) => {
+      const issuedAt = new Date(expiresAt.getTime() - 2 * 60 * 60 * 1_000)
+      return `Appel vidéo MAER — Invitation envoyée via la conversation XMPP.\n` +
+        `MAER-CALL/1 mode=video issued=${issuedAt.toISOString()} expires=${expiresAt.toISOString()} room=${room}\n` +
+        `https://meet.jit.si/${room}`
+    }
+    const expiredRoom = 'MAER-0000000000000001'
+    expect(registerIncomingCallMessage(bodyFor(expiredRoom, new Date(now.getTime() + 100)), 'bob')).toBe(true)
+    vi.setSystemTime(new Date(now.getTime() + 200))
+    const freshRoom = 'MAER-0000000000000002'
+    expect(registerIncomingCallMessage(bodyFor(freshRoom, new Date(now.getTime() + 60_000)), 'bob')).toBe(true)
+
+    const anchor = document.createElement('a')
+    anchor.href = `https://meet.jit.si/${expiredRoom}`
+    document.body.append(anchor)
+    anchor.click()
+    expect(document.querySelector('#maer-toast')?.textContent).toMatch(/li|valide/i)
   })
 })

@@ -47,8 +47,8 @@
 
   function showLocked(detail) {
     statusCard.dataset.state = 'locked';
-    statusTitle.textContent = 'Coffre verrouille';
-    statusDetail.textContent = detail || 'Ouvrez MAER Chat pour le deverrouiller';
+    statusTitle.textContent = 'Coffre verrouillé';
+    statusDetail.textContent = detail || 'Ouvrez MAER Chat pour le déverrouiller';
     lockButton.disabled = true;
   }
 
@@ -56,7 +56,7 @@
     refreshButton.disabled = true;
     statusCard.dataset.state = 'checking';
     statusTitle.textContent = 'Verification...';
-    statusDetail.textContent = 'Connexion securisee au client MAER';
+    statusDetail.textContent = 'Connexion sécurisée au client MAER';
     try {
       const tab = await activeTab();
       originLabel.textContent = protocol.originFromUrl(tab.url);
@@ -66,12 +66,12 @@
         return;
       }
       statusCard.dataset.state = 'ready';
-      statusTitle.textContent = 'Coffre deverrouille';
+      statusTitle.textContent = 'Coffre déverrouillé';
       statusDetail.textContent = 'Pret a remplir apres votre clic';
       lockButton.disabled = false;
     } catch (_error) {
       originLabel.textContent = 'Site HTTPS non disponible';
-      showLocked('Hote MAER absent ou indisponible');
+      showLocked('Hôte MAER absent ou indisponible');
     } finally {
       refreshButton.disabled = false;
     }

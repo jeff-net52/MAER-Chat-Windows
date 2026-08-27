@@ -133,6 +133,14 @@ export class AtomicVaultStorage<T = Kdbx> {
     return stats.some((candidate) => candidate.stats !== undefined)
   }
 
+  async reset(): Promise<void> {
+    await this.assertSafeDirectory()
+    const existing = await this.preflightCandidates()
+    for (const path of this.paths()) {
+      if (existing.has(path)) await this.removeChecked(path)
+    }
+  }
+
   async recover(secret: Uint8Array): Promise<T | undefined> {
     await this.assertSafeDirectory()
     const existing = await this.preflightCandidates()

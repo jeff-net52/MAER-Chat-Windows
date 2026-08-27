@@ -32,11 +32,14 @@ export function renderWelcomeScreen(accounts: readonly string[]): string {
         <div class="account-list">
           ${accounts
             .map(
-              (account) => `<button class="account-card" type="button" data-account="${escapeHtml(account)}">
-                <span class="avatar" aria-hidden="true">${escapeHtml(avatarLabel(account))}</span>
-                <span class="account-copy"><strong>${escapeHtml(account.split('@')[0] ?? account)}</strong><small>${escapeHtml(account)}</small></span>
-                <span class="chevron" aria-hidden="true">›</span>
-              </button>`,
+              (account) => `<div class="account-row">
+                <button class="account-card" type="button" data-account="${escapeHtml(account)}">
+                  <span class="avatar" aria-hidden="true">${escapeHtml(avatarLabel(account))}</span>
+                  <span class="account-copy"><strong>${escapeHtml(account.split('@')[0] ?? account)}</strong><small>${escapeHtml(account)}</small></span>
+                  <span class="chevron" aria-hidden="true">›</span>
+                </button>
+                <button class="forget-account-button" type="button" data-forget-account="${escapeHtml(account)}" aria-label="Oublier le compte ${escapeHtml(account)}" title="Oublier ce compte">×</button>
+              </div>`,
             )
             .join('')}
         </div>
@@ -57,7 +60,7 @@ export function renderWelcomeScreen(accounts: readonly string[]): string {
 
 export function renderCredentialsScreen(): string {
   return `<main class="onboarding credentials-screen">
-    <button class="back-button" type="button" data-action="back" aria-label="Revenir au choix de connexion">←</button>
+    <button class="back-button" type="button" data-action="back-to-choice" aria-label="Revenir au choix de connexion">←</button>
     <section class="credentials-card" aria-labelledby="credentials-title">
       <img class="brand-logo compact" src="./maer-chat-mark.png" alt="Logo MAER Chat" />
       <h1 id="credentials-title">Connexion à MAER Chat</h1>

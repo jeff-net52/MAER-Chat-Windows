@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
-import { mkdtemp, readFile, rm, stat } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, stat } from 'node:fs/promises'
 import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
@@ -19,6 +19,13 @@ function packagedExecutableArgument(args) {
 }
 
 const packagedExecutablePath = packagedExecutableArgument(process.argv.slice(2))
+const connectedSmoke = process.env.MAER_CHAT_CONNECTED_SMOKE === '1'
+const connectedJid = process.env.MAER_CHAT_SMOKE_JID
+const connectedPassword = process.env.MAER_CHAT_SMOKE_PASSWORD
+const connectedContactJid = process.env.MAER_CHAT_SMOKE_CONTACT_JID
+if (connectedSmoke && (!connectedJid || !connectedPassword)) {
+  throw new Error('Connected smoke requires MAER_CHAT_SMOKE_JID and MAER_CHAT_SMOKE_PASSWORD.')
+}
 const userDataDirectory = await mkdtemp(path.join(tmpdir(), 'maer-chat-smoke-'))
 let electronApp
 let cdpBrowser
@@ -294,9 +301,11 @@ async function verifyBrowserExtensionResources(executablePath) {
     firefoxManifestPath,
     path.join(extensionRoot, 'dist', 'chromium', 'BUILD-METADATA.json'),
     path.join(extensionRoot, 'dist', 'chromium', 'NOTICE.txt'),
+    path.join(extensionRoot, 'dist', 'chromium', 'LICENSE'),
     path.join(extensionRoot, 'dist', 'chromium', 'assets', 'icon-128.png'),
     path.join(extensionRoot, 'dist', 'firefox', 'BUILD-METADATA.json'),
     path.join(extensionRoot, 'dist', 'firefox', 'NOTICE.txt'),
+    path.join(extensionRoot, 'dist', 'firefox', 'LICENSE'),
     path.join(extensionRoot, 'dist', 'firefox', 'assets', 'icon-128.png'),
   ]
   for (const requiredFile of requiredFiles) {
@@ -430,7 +439,51 @@ try {
   assert.equal(await page.locator('#account-password').getAttribute('type'), 'text')
 
   let networkFailureHandled = false
-  if (process.env.MAER_CHAT_NETWORK_SMOKE === '1') {
+  let connectedResult = null
+  if (connectedSmoke) {
+    const suffix = '@xmpp.maer.fr'
+    if (!connectedJid.toLowerCase().endsWith(suffix)) {
+      throw new Error('Connected smoke JID must use the configured MAER domain.')
+    }
+    const identifier = connectedJid.slice(0, -suffix.length)
+    if (!identifier || identifier.includes('@')) {
+      throw new Error('Connected smoke JID is invalid.')
+    }
+    await page.fill('#account-id', identifier)
+    await page.fill('#account-password', connectedPassword)
+    await page.click('button[type="submit"]')
+    await page.waitForSelector('body.maer-shell-active #maer-app-rail', { timeout: 45_000 })
+    const geometry = await page.evaluate(() => {
+      const rail = document.querySelector('#maer-app-rail')?.getBoundingClientRect()
+      const sidebar = document.querySelector('#maer-conversation-sidebar')?.getBoundingClientRect()
+      if (!rail || !sidebar || rail.width < 40 || sidebar.width < 240) {
+        throw new Error('Connected MAER shell geometry is invalid.')
+      }
+      return {
+        rail: { width: Math.round(rail.width), height: Math.round(rail.height) },
+        sidebar: { width: Math.round(sidebar.width), height: Math.round(sidebar.height) },
+      }
+    })
+    if (connectedContactJid) {
+      const search = page.locator('[data-maer-conversation-search]')
+      await search.fill(connectedContactJid)
+      const contact = page.getByText(connectedContactJid, { exact: false }).last()
+      await contact.click({ timeout: 15_000 })
+      await page.waitForSelector('.maer-audio-call, .maer-video-call, .maer-screen-call', { timeout: 15_000 })
+    }
+    const callButtons = await page.locator('.maer-audio-call, .maer-video-call, .maer-screen-call').count()
+    if (connectedContactJid) assert.equal(callButtons, 3, 'Connected conversation must expose three call actions')
+    const screenshotPath = path.join(root, '..', '.codex-tmp', 'smoke-connected-windows.png')
+    await mkdir(path.dirname(screenshotPath), { recursive: true })
+    await page.screenshot({ path: screenshotPath, fullPage: true })
+    connectedResult = {
+      connected: true,
+      geometry,
+      callButtons,
+      callButtonsVerified: Boolean(connectedContactJid),
+      screenshotPath,
+    }
+  } else if (process.env.MAER_CHAT_NETWORK_SMOKE === '1') {
     await page.fill('#account-id', 'maer-client-smoke-nonexistent')
     await page.fill('#account-password', 'not-a-real-account-secret')
     await page.click('button[type="submit"]')
@@ -463,6 +516,7 @@ try {
     nativeMessagingReady,
     omemoWasmLoaded: true,
     networkFailureHandled,
+    connectedResult,
   }))
 } finally {
   await cdpBrowser?.close().catch(() => undefined)

@@ -25,6 +25,12 @@ function response(request: { requestId: string; action: string }) {
     delete: { entryId: ENTRY_ID, deleted: true },
     generate: { password: 'SafeGenerated-2345' },
     copy: { entryId: ENTRY_ID, copied: true, clearAfterSeconds: 30 },
+    'copy-username': { entryId: ENTRY_ID, usernameCopied: true, clearAfterSeconds: 30 },
+    reveal: { entryId: ENTRY_ID, password: 'Revealed-Secret-234' },
+    'open-url': { entryId: ENTRY_ID, opened: true },
+    'export-backup': { operation: 'export', completed: true, entryCount: 1 },
+    'import-backup': { operation: 'import', completed: true, entryCount: 1 },
+    reset: { state: 'uninitialized', entryCount: null },
     'open-extension-folder': { target: 'folder', opened: true },
     'open-extension-guide': { target: 'guide', opened: true },
   }
@@ -65,6 +71,12 @@ describe('explicit preload plugin bridge', () => {
       'delete',
       'generate',
       'copy',
+      'copyUsername',
+      'reveal',
+      'openUrl',
+      'exportBackup',
+      'importBackup',
+      'reset',
       'openExtensionFolder',
       'openExtensionGuide',
     ])
@@ -90,6 +102,18 @@ describe('explicit preload plugin bridge', () => {
     await expect(vault.copy(ENTRY_ID)).resolves.toEqual({
       entryId: ENTRY_ID, copied: true, clearAfterSeconds: 30,
     })
+    await expect(vault.copyUsername(ENTRY_ID)).resolves.toMatchObject({ usernameCopied: true })
+    await expect(vault.reveal(ENTRY_ID)).resolves.toEqual({
+      entryId: ENTRY_ID, password: 'Revealed-Secret-234',
+    })
+    await expect(vault.openUrl(ENTRY_ID)).resolves.toMatchObject({ opened: true })
+    await expect(vault.exportBackup('correct horse battery staple')).resolves.toMatchObject({
+      operation: 'export', completed: true,
+    })
+    await expect(vault.importBackup('correct horse battery staple')).resolves.toMatchObject({
+      operation: 'import', completed: true,
+    })
+    await expect(vault.reset()).resolves.toEqual({ state: 'uninitialized', entryCount: null })
     await expect(vault.openExtensionFolder()).resolves.toEqual({
       target: 'folder', opened: true,
     })

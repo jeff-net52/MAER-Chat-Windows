@@ -11,7 +11,7 @@
   --surface-muted: #f4f6f8;
   --canvas: #eef1f4;
   --text: #111b21;
-  --muted: #667781;
+  --muted: #52616a;
   --line: #e1e7eb;
   --danger: #c42b1c;
   --focus: #0089e6;
@@ -51,7 +51,10 @@ button {
 }
 
 button:focus-visible,
-input:focus-visible {
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex="-1"]:focus-visible {
   outline: 3px solid color-mix(in srgb, var(--focus) 42%, transparent);
   outline-offset: 2px;
 }
@@ -208,6 +211,28 @@ h2 {
 .account-list {
   display: grid;
   gap: 8px;
+}
+
+.account-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 42px;
+  gap: 6px;
+  align-items: stretch;
+}
+
+.forget-account-button {
+  color: var(--muted);
+  font-size: 24px;
+  background: var(--surface-muted);
+  border: 1px solid transparent;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.forget-account-button:hover {
+  color: var(--danger);
+  background: #fff0ee;
+  border-color: color-mix(in srgb, var(--danger) 32%, transparent);
 }
 
 .account-card {

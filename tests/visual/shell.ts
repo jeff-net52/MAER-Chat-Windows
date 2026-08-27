@@ -30,6 +30,14 @@ if (vaultPreview) {
       async copy() {
         return { entryId: previewEntry.id, copied: true as const, clearAfterSeconds: 30 }
       },
+      async copyUsername() {
+        return { entryId: previewEntry.id, usernameCopied: true as const, clearAfterSeconds: 30 }
+      },
+      async reveal() { return { entryId: previewEntry.id, password: 'Preview-Secret-234' } },
+      async openUrl() { return { entryId: previewEntry.id, opened: true as const } },
+      async exportBackup() { return { operation: 'export' as const, completed: true, entryCount: 1 } },
+      async importBackup() { return { operation: 'import' as const, completed: true, entryCount: 1 } },
+      async reset() { return { state: 'uninitialized' as const, entryCount: null } },
       async openExtensionFolder() {
         return { target: 'folder' as const, opened: true as const }
       },

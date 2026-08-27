@@ -1,9 +1,14 @@
 import {
   DEFAULT_MEETING_ORIGIN,
-  createMeetingUrl,
-  openMeetingExternally,
+  assertCallInvitationJoinable,
+  createMeetingInvitation,
+  isMaerMeetingUrl,
+  isPublicMeetingOriginUrl,
+  openMeetingInApp,
+  parseIncomingCallInvitation,
   startConversationCall,
   type CallConversation,
+  type IncomingCallInvitation,
   type CallMode,
   type StartedCall,
 } from './call-service'
@@ -20,7 +25,7 @@ export interface DesktopPreferences {
 
 export interface DesktopShellOptions {
   accountJid: string
-  onLogout(): Promise<void>
+  onLogout(options?: { forgetCredential: boolean }): Promise<void>
   applyChatPreferences(preferences: DesktopPreferences): void
   pluginRegistry?: RendererPluginRegistry
 }
@@ -28,6 +33,7 @@ export interface DesktopShellOptions {
 const PREFERENCES_KEY = 'maer.desktop.preferences.v1'
 const CALL_HISTORY_KEY = 'maer.desktop.call-history.v1'
 const PUBLIC_MEETING_CONSENT_KEY = 'maer.desktop.public-meeting-consent.v1'
+const PUBLIC_MEETING_CONSENT_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1_000
 const DEFAULT_PREFERENCES: DesktopPreferences = {
   theme: 'system',
   notifications: true,
@@ -41,6 +47,12 @@ let conversationSearch = ''
 let conversationFilter: 'all' | 'unread' = 'all'
 let pluginPanelCleanup: (() => void) | undefined
 let pluginSettingsCleanups: Array<() => void> = []
+let activeMediaStream: MediaStream | undefined
+let mediaRequestGeneration = 0
+let panelReturnFocus: HTMLElement | undefined
+let pendingIncomingCall: { invitation: IncomingCallInvitation; sender: string } | undefined
+const incomingCalls = new Map<string, { invitation: IncomingCallInvitation; sender: string }>()
+export const MAX_RETAINED_INCOMING_CALLS = 50
 
 function readJson<T>(key: string, fallback: T): T {
   try {
@@ -80,7 +92,34 @@ function applyTheme(theme: ThemePreference): void {
 
 function callHistory(): StartedCall[] {
   const history = readJson<StartedCall[]>(CALL_HISTORY_KEY, [])
-  return Array.isArray(history) ? history.slice(0, 20) : []
+  const now = Date.now()
+  return Array.isArray(history)
+    ? history
+        .filter((call) => {
+          if (
+            !call ||
+            (call.mode !== 'audio' && call.mode !== 'video' && call.mode !== 'screen') ||
+            typeof call.meetingUrl !== 'string' ||
+            typeof call.startedAt !== 'string' ||
+            typeof call.expiresAt !== 'string' ||
+            typeof call.room !== 'string' ||
+            Date.parse(call.expiresAt) <= now
+          ) return false
+          try {
+            assertCallInvitationJoinable({
+              mode: call.mode,
+              meetingUrl: call.meetingUrl,
+              issuedAt: call.startedAt,
+              expiresAt: call.expiresAt,
+              room: call.room,
+            })
+            return true
+          } catch {
+            return false
+          }
+        })
+        .slice(0, 20)
+    : []
 }
 
 function rememberCall(call: StartedCall): void {
@@ -89,13 +128,128 @@ function rememberCall(call: StartedCall): void {
 
 function confirmMeetingProvider(): boolean {
   if (new URL(DEFAULT_MEETING_ORIGIN).hostname !== 'meet.jit.si') return true
-  if (localStorage.getItem(PUBLIC_MEETING_CONSENT_KEY) === 'accepted') return true
+  const consent = readJson<{ acceptedAt?: string }>(PUBLIC_MEETING_CONSENT_KEY, {})
+  const acceptedAt = typeof consent.acceptedAt === 'string' ? Date.parse(consent.acceptedAt) : Number.NaN
+  if (Number.isFinite(acceptedAt) && Date.now() - acceptedAt < PUBLIC_MEETING_CONSENT_MAX_AGE_MS) {
+    return true
+  }
+  localStorage.removeItem(PUBLIC_MEETING_CONSENT_KEY)
   const accepted = window.confirm(
-    'Les appels audio/vidéo utilisent provisoirement le service public Jitsi Meet. ' +
-      'Le contenu audio, vidéo et le partage d’écran ne transitent donc pas par le serveur XMPP MAER. Continuer ?',
+    'Cette réunion utilise le service public Jitsi Meet dans une fenêtre MAER isolée. ' +
+      'L’audio, la vidéo et le partage d’écran ne transitent pas par le serveur XMPP MAER. ' +
+      'Vous pourrez révoquer ce consentement dans Paramètres. Continuer ?',
   )
-  if (accepted) localStorage.setItem(PUBLIC_MEETING_CONSENT_KEY, 'accepted')
+  if (accepted) {
+    localStorage.setItem(
+      PUBLIC_MEETING_CONSENT_KEY,
+      JSON.stringify({ acceptedAt: new Date().toISOString() }),
+    )
+  }
   return accepted
+}
+
+async function joinIncomingCall(invitation: IncomingCallInvitation): Promise<void> {
+  try {
+    assertCallInvitationJoinable(invitation)
+    if (!confirmMeetingProvider()) return
+    assertCallInvitationJoinable(invitation)
+    await openMeetingInApp(invitation)
+    incomingCalls.delete(invitation.meetingUrl)
+    dismissIncomingCall(false)
+  } catch (error) {
+    incomingCalls.delete(invitation.meetingUrl)
+    dismissIncomingCall(false)
+    showToast(error instanceof Error ? error.message : 'Invitation d’appel invalide.')
+  }
+}
+
+function dismissIncomingCall(removeFromRegistry = false): void {
+  if (removeFromRegistry && pendingIncomingCall) {
+    incomingCalls.delete(pendingIncomingCall.invitation.meetingUrl)
+  }
+  document.querySelector('[data-maer-incoming-call]')?.remove()
+  pendingIncomingCall = undefined
+}
+
+function purgeIncomingCalls(now = Date.now()): void {
+  for (const [url, incoming] of incomingCalls) {
+    if (Date.parse(incoming.invitation.expiresAt) <= now) incomingCalls.delete(url)
+  }
+  while (incomingCalls.size >= MAX_RETAINED_INCOMING_CALLS) {
+    const oldest = incomingCalls.keys().next().value
+    if (typeof oldest !== 'string') break
+    incomingCalls.delete(oldest)
+  }
+}
+
+function showIncomingCall(invitation: IncomingCallInvitation, sender: string): void {
+  dismissIncomingCall(false)
+  pendingIncomingCall = { invitation, sender }
+  const prompt = document.createElement('section')
+  prompt.className = 'maer-incoming-call'
+  prompt.dataset.maerIncomingCall = ''
+  prompt.setAttribute('role', 'dialog')
+  prompt.setAttribute('aria-modal', 'false')
+  prompt.setAttribute('aria-labelledby', 'maer-incoming-call-title')
+  const title = document.createElement('strong')
+  title.id = 'maer-incoming-call-title'
+  title.textContent = invitation.mode === 'audio'
+    ? 'Appel audio entrant'
+    : invitation.mode === 'video'
+      ? 'Appel vidéo entrant'
+      : 'Partage d’écran entrant'
+  const detail = document.createElement('span')
+  detail.textContent = `Invitation de ${sender || 'contact XMPP'} via la conversation XMPP.`
+  const actions = document.createElement('div')
+  const refuse = document.createElement('button')
+  refuse.type = 'button'
+  refuse.dataset.maerAction = 'refuse-incoming-call'
+  refuse.textContent = 'Refuser'
+  const join = document.createElement('button')
+  join.type = 'button'
+  join.className = 'maer-primary-action'
+  join.dataset.maerAction = 'join-incoming-call'
+  join.textContent = 'Rejoindre'
+  actions.append(refuse, join)
+  prompt.append(title, detail, actions)
+  document.querySelector('#maer-desktop-shell')?.append(prompt)
+  join.focus()
+}
+
+export function registerIncomingCallMessage(body: unknown, sender: unknown): boolean {
+  try {
+    const invitation = parseIncomingCallInvitation(body)
+    assertCallInvitationJoinable(invitation)
+    purgeIncomingCalls()
+    const normalizedSender = typeof sender === 'string' ? sender.split('/')[0]?.slice(0, 320) ?? '' : ''
+    const incoming = { invitation, sender: normalizedSender }
+    incomingCalls.delete(invitation.meetingUrl)
+    incomingCalls.set(invitation.meetingUrl, incoming)
+    showIncomingCall(invitation, normalizedSender)
+    return true
+  } catch {
+    return false
+  }
+}
+
+function onMeetingLinkClick(event: MouseEvent): void {
+  const anchor = event.composedPath().find((candidate) => candidate instanceof HTMLAnchorElement)
+  if (!(anchor instanceof HTMLAnchorElement)) return
+  const raw = anchor.getAttribute('href') ?? anchor.href
+  if (!isPublicMeetingOriginUrl(raw)) return
+  event.preventDefault()
+  event.stopPropagation()
+  purgeIncomingCalls()
+  if (!isMaerMeetingUrl(raw)) {
+    showToast('Ce lien Jitsi est bloqué : seule une invitation MAER-CALL/1 canonique peut ouvrir une réunion.')
+    return
+  }
+  const incoming = incomingCalls.get(raw)
+  if (!incoming) {
+    showToast('Ce lien de réunion n’est pas lié à une invitation MAER-CALL/1 valide.')
+    return
+  }
+  void joinIncomingCall(incoming.invitation)
 }
 
 function icon(path: string): string {
@@ -107,7 +261,7 @@ function shellMarkup(): string {
     <nav id="maer-app-rail" aria-label="Navigation principale">
       <img class="maer-rail-logo" src="./maer-chat-mark.png" alt="MAER Chat" />
       <div class="maer-rail-main">
-        <button class="maer-rail-button is-active" type="button" data-maer-view="chats" aria-label="Discussions" title="Discussions">
+        <button class="maer-rail-button is-active" type="button" data-maer-view="chats" aria-label="Discussions" aria-current="page" title="Discussions">
           ${icon('M4 4h16v13H7l-3 3V4zm3 4v2h10V8H7zm0 4v2h7v-2H7z')}
         </button>
         <button class="maer-rail-button" type="button" data-maer-view="calls" aria-label="Appels" title="Appels">
@@ -121,8 +275,8 @@ function shellMarkup(): string {
         <button class="maer-account-avatar" type="button" data-maer-view="settings" aria-label="Compte MAER" title="Compte MAER">M</button>
       </div>
     </nav>
-    <aside id="maer-side-panel" aria-label="Panneau MAER Chat" hidden>
-      <header><button type="button" data-maer-action="close-panel" aria-label="Fermer">←</button><h2 data-maer-panel-title></h2></header>
+    <aside id="maer-side-panel" role="dialog" aria-modal="false" aria-labelledby="maer-panel-heading" tabindex="-1" hidden>
+      <header><button type="button" data-maer-action="close-panel" aria-label="Fermer le panneau">←</button><h2 id="maer-panel-heading" data-maer-panel-title></h2></header>
       <div data-maer-panel-content></div>
     </aside>
     <div id="maer-toast" role="status" aria-live="polite" hidden></div>
@@ -305,10 +459,10 @@ function activateRail(view: string): void {
   document
     .querySelectorAll<HTMLElement>('[data-maer-view], [data-maer-plugin-key]')
     .forEach((button) => {
-      button.classList.toggle(
-        'is-active',
-        button.dataset.maerView === view || button.dataset.maerPluginKey === view,
-      )
+      const active = button.dataset.maerView === view || button.dataset.maerPluginKey === view
+      button.classList.toggle('is-active', active)
+      if (active) button.setAttribute('aria-current', 'page')
+      else button.removeAttribute('aria-current')
     })
 }
 
@@ -368,7 +522,8 @@ function renderCallsPanel(container: HTMLElement): void {
   container.innerHTML = `<section class="maer-panel-section maer-calls-intro">
       <div class="maer-feature-icon">${icon('M15 10l4.5-3v10L15 14v3H4V7h11v3z')}</div>
       <h3>Appels audio et vidéo</h3>
-      <p>Dans une discussion, utilisez les boutons téléphone, caméra ou écran. Un lien privé à usage ponctuel est envoyé au contact.</p>
+      <p>Dans une discussion, utilisez les boutons téléphone, caméra ou écran. Une invitation est envoyée au contact via la conversation XMPP et la réunion s’ouvre dans une fenêtre MAER isolée.</p>
+      <p class="maer-call-disclosure">Le fournisseur de réunion est indiqué avant l’ouverture. Une URL aléatoire réduit le risque de découverte, mais ne constitue ni un mot de passe ni une garantie d’usage unique.</p>
       <button type="button" class="maer-primary-action" data-maer-action="test-meeting">Ouvrir une réunion de test</button>
     </section>
     <section class="maer-panel-section"><h3>Appels récents</h3><div data-maer-call-history></div></section>`
@@ -390,7 +545,28 @@ function renderCallsPanel(container: HTMLElement): void {
     const reopen = document.createElement('button')
     reopen.type = 'button'
     reopen.textContent = 'Rejoindre'
-    reopen.addEventListener('click', () => openMeetingExternally(call.meetingUrl))
+    reopen.addEventListener('click', () => {
+      if (Date.parse(call.expiresAt) <= Date.now()) {
+        showToast('Cette invitation d’appel a expiré.')
+        reopen.disabled = true
+        return
+      }
+      if (!confirmMeetingProvider()) return
+      const invitation = {
+        mode: call.mode,
+        meetingUrl: call.meetingUrl,
+        issuedAt: call.startedAt,
+        expiresAt: call.expiresAt,
+        room: call.room,
+      }
+      try {
+        assertCallInvitationJoinable(invitation)
+        void openMeetingInApp(invitation)
+      } catch (error) {
+        showToast(error instanceof Error ? error.message : 'Invitation d’appel invalide.')
+        reopen.disabled = true
+      }
+    })
     row.append(copy, reopen)
     historyRoot.append(row)
   }
@@ -422,7 +598,7 @@ function renderSettingsPanel(container: HTMLElement): void {
       <button type="button" class="maer-secondary-action" data-maer-action="test-media">Tester caméra et micro</button>
       <div class="maer-media-test" data-maer-media-test hidden><video autoplay muted playsinline></video><p role="status"></p><button type="button" data-maer-action="stop-media">Arrêter le test</button></div>
     </section>
-    <section class="maer-panel-section maer-provider-note"><h3>Visioconférence</h3><p>Les réunions s’ouvrent actuellement sur Jitsi Meet. Le nom du salon est aléatoire et ne contient aucune adresse XMPP.</p></section>
+    <section class="maer-panel-section maer-provider-note"><h3>Visioconférence</h3><p>Les réunions s’ouvrent dans une fenêtre MAER dédiée utilisant actuellement Jitsi Meet. Le salon est aléatoire et ne contient aucune adresse XMPP.</p><button type="button" class="maer-secondary-action" data-maer-action="reset-meeting-consent">Révoquer mon consentement Jitsi</button><p data-maer-consent-status role="status"></p></section>
     <section class="maer-panel-section maer-about-section" data-maer-about aria-labelledby="maer-about-heading">
       <h3 id="maer-about-heading">À propos et licences</h3>
       <p class="maer-about-product"><strong>MAER Chat <span data-maer-app-version></span></strong><small>Client XMPP pour Windows</small></p>
@@ -438,7 +614,8 @@ function renderSettingsPanel(container: HTMLElement): void {
       </details>
       <p class="maer-legal-location">Consultez <strong>THIRD_PARTY_NOTICES.md</strong> et <strong>THIRD_PARTY_LICENSES</strong> dans le dépôt source et le paquet de licences de la release.</p>
     </section>
-    <button type="button" class="maer-danger-action" data-maer-action="logout">Se déconnecter sur cet ordinateur</button>`
+    <button type="button" class="maer-danger-action" data-maer-action="logout">Se déconnecter sur cet ordinateur</button>
+    <button type="button" class="maer-secondary-action" data-maer-action="logout-forget">Se déconnecter et oublier ce compte</button>`
 
   const account = container.querySelector<HTMLElement>('[data-maer-account]')
   if (account) account.textContent = shellOptions?.accountJid ?? ''
@@ -475,6 +652,7 @@ function renderSettingsPanel(container: HTMLElement): void {
 }
 
 function openPanel(view: 'calls' | 'settings'): void {
+  stopMedia()
   clearPluginPanel()
   if (view !== 'settings') clearPluginSettings()
   const target = panel()
@@ -487,9 +665,11 @@ function openPanel(view: 'calls' | 'settings'): void {
   else renderSettingsPanel(content)
   target.hidden = false
   activateRail(view)
+  target.focus()
 }
 
 function openPluginPanel(pluginId: string, panelId: string, railKey: string): void {
+  stopMedia()
   clearPluginPanel()
   clearPluginSettings()
   const registry = shellOptions?.pluginRegistry
@@ -511,17 +691,23 @@ function openPluginPanel(pluginId: string, panelId: string, railKey: string): vo
   }
   target.hidden = false
   activateRail(railKey)
+  target.focus()
 }
 
 function closePanel(): void {
+  stopMedia()
   clearPluginPanel()
   clearPluginSettings()
   const target = panel()
   if (target) target.hidden = true
   activateRail('chats')
+  panelReturnFocus?.focus()
+  panelReturnFocus = undefined
 }
 
 async function testMedia(): Promise<void> {
+  stopMedia()
+  const generation = ++mediaRequestGeneration
   const root = document.querySelector<HTMLElement>('[data-maer-media-test]')
   const video = root?.querySelector<HTMLVideoElement>('video')
   const status = root?.querySelector<HTMLElement>('[role="status"]')
@@ -533,6 +719,11 @@ async function testMedia(): Promise<void> {
   status.textContent = 'Demande d’autorisation en cours…'
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true })
+    if (generation !== mediaRequestGeneration || panel()?.hidden) {
+      stream.getTracks().forEach((track) => track.stop())
+      return
+    }
+    activeMediaStream = stream
     video.srcObject = stream
     status.textContent = 'Caméra et microphone opérationnels.'
   } catch {
@@ -541,13 +732,19 @@ async function testMedia(): Promise<void> {
 }
 
 function stopMedia(): void {
+  mediaRequestGeneration += 1
   const root = document.querySelector<HTMLElement>('[data-maer-media-test]')
   const video = root?.querySelector<HTMLVideoElement>('video')
-  const stream = video?.srcObject
-  const mediaStream = stream as MediaStream | null | undefined
-  if (mediaStream && typeof mediaStream.getTracks === 'function') {
-    mediaStream.getTracks().forEach((track) => track.stop())
+  const attachedStream = video?.srcObject as MediaStream | null | undefined
+  const streams = new Set<MediaStream>()
+  if (activeMediaStream) streams.add(activeMediaStream)
+  if (attachedStream && typeof attachedStream.getTracks === 'function') {
+    streams.add(attachedStream)
   }
+  for (const stream of streams) {
+    stream.getTracks().forEach((track) => track.stop())
+  }
+  activeMediaStream = undefined
   if (video) video.srcObject = null
   if (root) root.hidden = true
 }
@@ -556,6 +753,9 @@ function onShellClick(event: Event): void {
   const button = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('button') : null
   if (!button) return
   const view = button.dataset.maerView
+  if (view === 'calls' || view === 'settings' || button.dataset.maerPluginKey) {
+    panelReturnFocus = button
+  }
   if (view === 'chats') closePanel()
   if (view === 'calls' || view === 'settings') openPanel(view)
   if (
@@ -574,7 +774,11 @@ function onShellClick(event: Event): void {
       closePanel()
       break
     case 'test-meeting':
-      if (confirmMeetingProvider()) openMeetingExternally(createMeetingUrl('video'))
+      if (confirmMeetingProvider()) {
+        const invitation = createMeetingInvitation('video')
+        assertCallInvitationJoinable(invitation)
+        void openMeetingInApp(invitation)
+      }
       break
     case 'test-media':
       void testMedia()
@@ -584,12 +788,33 @@ function onShellClick(event: Event): void {
       break
     case 'logout':
       button.disabled = true
-      void shellOptions?.onLogout()
+      void shellOptions?.onLogout({ forgetCredential: false })
+      break
+    case 'logout-forget':
+      if (!window.confirm('Oublier ce compte supprimera son secret du Gestionnaire d’identifiants Windows. Continuer ?')) break
+      button.disabled = true
+      void shellOptions?.onLogout({ forgetCredential: true })
+      break
+    case 'reset-meeting-consent':
+      localStorage.removeItem(PUBLIC_MEETING_CONSENT_KEY)
+      button.disabled = true
+      button.textContent = 'Consentement révoqué'
+      const consentStatus = document.querySelector<HTMLElement>('[data-maer-consent-status]')
+      if (consentStatus) {
+        consentStatus.textContent = 'Une nouvelle confirmation sera demandée au prochain appel.'
+      }
+      break
+    case 'join-incoming-call':
+      if (pendingIncomingCall) void joinIncomingCall(pendingIncomingCall.invitation)
+      break
+    case 'refuse-incoming-call':
+      dismissIncomingCall(true)
+      showToast('Invitation d’appel refusée.')
       break
   }
 }
 
-function onShellChange(event: Event): void {
+async function onShellChange(event: Event): Promise<void> {
   const input = event.target
   if (!(input instanceof HTMLInputElement || input instanceof HTMLSelectElement)) return
   const key = input.dataset.maerSetting
@@ -599,8 +824,15 @@ function onShellChange(event: Event): void {
     preferences.theme = input.value as ThemePreference
   } else if (key === 'notifications' && input instanceof HTMLInputElement) {
     preferences.notifications = input.checked
-    if (input.checked && 'Notification' in window && Notification.permission === 'default') {
-      void Notification.requestPermission()
+    if (input.checked && 'Notification' in window) {
+      const permission = Notification.permission === 'default'
+        ? await Notification.requestPermission()
+        : Notification.permission
+      if (permission !== 'granted') {
+        preferences.notifications = false
+        input.checked = false
+        showToast('Les notifications Windows sont refusées. Autorisez-les dans Windows puis réessayez.')
+      }
     }
   } else if (key === 'sounds' && input instanceof HTMLInputElement) {
     preferences.sounds = input.checked
@@ -608,6 +840,33 @@ function onShellChange(event: Event): void {
   saveDesktopPreferences(preferences)
   applyTheme(preferences.theme)
   shellOptions?.applyChatPreferences(preferences)
+}
+
+function onShellKeydown(event: KeyboardEvent): void {
+  if (event.key === 'Escape' && !panel()?.hidden) {
+    event.preventDefault()
+    closePanel()
+    return
+  }
+  if (event.ctrlKey && event.key === ',') {
+    event.preventDefault()
+    const button = document.querySelector<HTMLButtonElement>('[data-maer-view="settings"]')
+    if (button) panelReturnFocus = button
+    openPanel('settings')
+    return
+  }
+  if (event.ctrlKey && event.key.toLocaleLowerCase('fr') === 'k') {
+    const search = document.querySelector<HTMLInputElement>('[data-maer-conversation-search]')
+    if (search) {
+      event.preventDefault()
+      closePanel()
+      search.focus()
+    }
+  }
+}
+
+function onVisibilityChange(): void {
+  if (document.hidden) stopMedia()
 }
 
 export function installMaerDesktopShell(options: DesktopShellOptions): void {
@@ -626,19 +885,30 @@ export function installMaerDesktopShell(options: DesktopShellOptions): void {
   applyTheme(preferences.theme)
   options.applyChatPreferences(preferences)
   document.querySelector('#maer-desktop-shell')?.addEventListener('click', onShellClick)
-  document.querySelector('#maer-desktop-shell')?.addEventListener('change', onShellChange)
+  document.querySelector('#maer-desktop-shell')?.addEventListener('change', (event) => {
+    void onShellChange(event)
+  })
+  document.addEventListener('keydown', onShellKeydown)
+  document.addEventListener('click', onMeetingLinkClick, true)
+  document.addEventListener('visibilitychange', onVisibilityChange)
   installPluginRail()
   installConversationSidebar()
 }
 
 export function uninstallMaerDesktopShell(): void {
   stopMedia()
+  void window.maerDesktop?.closeMeeting?.().catch(() => undefined)
   clearPluginPanel()
   clearPluginSettings()
   uninstallConversationSidebar()
   document.querySelector('#maer-desktop-shell')?.remove()
   document.body.classList.remove('maer-shell-active')
+  document.removeEventListener('keydown', onShellKeydown)
+  document.removeEventListener('click', onMeetingLinkClick, true)
+  document.removeEventListener('visibilitychange', onVisibilityChange)
   shellOptions = undefined
+  dismissIncomingCall()
+  incomingCalls.clear()
 }
 
 export async function launchConversationCall(
@@ -651,8 +921,8 @@ export async function launchConversationCall(
     rememberCall(call)
     showToast(
       mode === 'screen'
-        ? "Lien envoyé. Dans la réunion, cliquez sur « Partager l’écran »."
-        : 'Lien d’appel envoyé et réunion ouverte.',
+        ? "Invitation envoyée. Utilisez « Partager l’écran » dans la fenêtre MAER."
+        : 'Invitation envoyée et réunion ouverte dans MAER Chat.',
     )
   } catch (error) {
     showToast(error instanceof Error ? error.message : "Impossible de démarrer l’appel.")

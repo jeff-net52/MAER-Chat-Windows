@@ -9,6 +9,7 @@ import type { RendererPluginRegistry } from '../plugins/core/renderer/plugin-reg
 import {
   installMaerDesktopShell,
   launchConversationCall,
+  registerIncomingCallMessage,
   uninstallMaerDesktopShell,
   type DesktopPreferences,
 } from './desktop-shell'
@@ -62,6 +63,10 @@ interface ConverseChatElement {
 
 interface ConverseCallEvent {
   model?: CallConversation
+}
+
+interface ConverseMessageModel {
+  get(name: string): unknown
 }
 
 interface ConverseHeadingButton {
@@ -124,6 +129,12 @@ function installCallExtensions(privateApi: ConversePrivateApi): void {
   )
   privateApi.listen.on?.('callButtonClicked', (event: ConverseCallEvent) => {
     if (event?.model) void launchConversationCall(event.model, 'audio')
+  })
+  privateApi.listen.on?.('messageReceived', (message: ConverseMessageModel) => {
+    if (!message?.get) return
+    const body = message.get('plaintext') ?? message.get('body') ?? message.get('message')
+    const sender = message.get('from') ?? message.get('contact_jid')
+    registerIncomingCallMessage(body, sender)
   })
 }
 
@@ -281,7 +292,10 @@ export class ConverseChatConnector implements ChatConnector {
           this.privateApi = observer.privateApi
           installMaerDesktopShell({
             accountJid: request.jid,
-            onLogout: async () => {
+            onLogout: async (options) => {
+              if (options?.forgetCredential) {
+                await window.maerDesktop.deleteCredential(request.jid)
+              }
               await this.disconnect()
               window.location.reload()
             },

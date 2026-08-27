@@ -36,6 +36,8 @@ function makeBridge(overrides: Partial<DesktopBridge> = {}): DesktopBridge {
     loadCredential: vi.fn(async () => undefined),
     saveValidatedCredential: vi.fn(async () => undefined),
     deleteCredential: vi.fn(async () => false),
+    openMeeting: vi.fn(async () => undefined),
+    closeMeeting: vi.fn(async () => undefined),
     ...overrides,
   }
 }
@@ -55,6 +57,7 @@ async function flush(): Promise<void> {
 describe('OnboardingController', () => {
   beforeEach(() => {
     document.body.innerHTML = '<div id="app"></div>'
+    bootstrap.accounts = []
   })
 
   afterEach(() => {
@@ -164,5 +167,55 @@ describe('OnboardingController', () => {
         expiresAt: '2027-02-20T19:12:00.000Z',
       },
     })
+  })
+
+  it('returns from credentials to the connection choice and moves focus to its heading', async () => {
+    const root = document.querySelector<HTMLElement>('#app')!
+    const controller = new OnboardingController(root, makeBridge(), makeChat())
+    await controller.start()
+    root.querySelector<HTMLButtonElement>('[data-action="start"]')?.click()
+    root.querySelector<HTMLButtonElement>('[data-action="password"]')?.click()
+    root.querySelector<HTMLButtonElement>('[data-action="back-to-choice"]')?.click()
+    await flush()
+
+    expect(root.querySelector('[data-action="pair"]')).not.toBeNull()
+    expect(document.activeElement?.textContent).toBe('Connecter MAER Chat')
+  })
+
+  it('shows only the useful IPC error text', async () => {
+    const root = document.querySelector<HTMLElement>('#app')!
+    const bridge = makeBridge({
+      preparePasswordLogin: vi.fn(async () => Promise.reject(
+        new Error("Error invoking remote method 'maer:prepare-password-login': Error: Saisissez uniquement votre identifiant local"),
+      )),
+    })
+    const controller = new OnboardingController(root, bridge, makeChat())
+    await controller.start()
+    root.querySelector<HTMLButtonElement>('[data-action="start"]')?.click()
+    root.querySelector<HTMLButtonElement>('[data-action="password"]')?.click()
+    root.querySelector<HTMLInputElement>('[name="identifier"]')!.value = 'alice@example.test'
+    root.querySelector<HTMLInputElement>('[name="password"]')!.value = 'secret'
+    root.querySelector<HTMLFormElement>('[data-form="credentials"]')?.requestSubmit()
+    await flush()
+
+    const alert = root.querySelector<HTMLElement>('[data-role="form-error"]')
+    expect(alert?.textContent).toBe('Saisissez uniquement votre identifiant local')
+    expect(alert?.textContent).not.toMatch(/remote method|maer:/i)
+  })
+
+  it('forgets a remembered account from the welcome screen', async () => {
+    const root = document.querySelector<HTMLElement>('#app')!
+    const bridge = makeBridge({
+      getBootstrap: vi.fn(async () => ({ ...bootstrap, accounts: ['alice@xmpp.maer.fr'] })),
+      deleteCredential: vi.fn(async () => true),
+    })
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const controller = new OnboardingController(root, bridge, makeChat())
+    await controller.start()
+    root.querySelector<HTMLButtonElement>('[data-forget-account="alice@xmpp.maer.fr"]')?.click()
+    await flush()
+
+    expect(bridge.deleteCredential).toHaveBeenCalledWith('alice@xmpp.maer.fr')
+    expect(root.querySelector('[data-account="alice@xmpp.maer.fr"]')).toBeNull()
   })
 })

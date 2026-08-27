@@ -13,9 +13,11 @@ Client de bureau Windows 10/11 x64 pour les comptes XMPP MAER existants (`@xmpp.
   sont refusés.
 - Rail Discussions/Appels/Paramètres, recherche et filtre des contacts, test
   caméra/microphone, notifications et sons configurables.
-- Appels audio/vidéo et partage d’écran par lien de réunion Jitsi aléatoire,
-  envoyé dans la conversation puis ouvert dans le navigateur système après
-  consentement explicite lors de la première utilisation.
+- Appels audio/vidéo et partage d’écran par invitation `MAER-CALL/1` envoyée
+  via la conversation XMPP. Le salon Jitsi aléatoire s’ouvre dans une fenêtre
+  MAER isolée après consentement explicite. Les invitations entrantes sont
+  liées au salon et à une échéance contrôlée à nouveau au clic ; les liens
+  Jitsi non liés à une invitation valide ne sont pas délégués au navigateur.
 - Parcours QR implémenté dans les sources Windows, Android et MAER XMPP Server,
   avec approbation XMPP, jeton OAuth limité et révocation par appareil. Il ne
   sera déclaré opérationnel qu'après le déploiement du nouveau serveur sur le
@@ -33,7 +35,12 @@ Client de bureau Windows 10/11 x64 pour les comptes XMPP MAER existants (`@xmpp.
   une interface inspirée de Firefox, génération/copie temporaire, verrouillage
   automatique et extensions Edge/Chrome/Firefox. Le pont Native Messaging reste
   strictement main-only, authentifie un pipe local et lie chaque révélation à
-  l’origine Web exacte ; aucun secret n’est exposé au preload ou au renderer.
+  l’origine Web exacte. Une révélation demandée depuis l’interface exige aussi
+  une confirmation native du processus principal ; le secret est ensuite
+  transmis au renderer isolé uniquement pour l’affichage demandé et effacé de
+  l’interface après 15 secondes. Le renderer fait donc partie du modèle de
+  confiance pendant cette courte fenêtre, contrairement aux listes du coffre
+  qui ne contiennent jamais les mots de passe.
 - La suite de tests automatisés est complétée par un smoke test
   Electron et le harnais de régression visuelle de `tests/visual/`.
 
@@ -49,6 +56,11 @@ mais le déploiement NAS et la validation réelle restent obligatoires avant de
 présenter la fonction comme livrée. Les fichiers
 `docs/CODEX_ANDROID_LINKED_DEVICES.md` et `docs/CODEX_PROJECT_HANDOFF.md` sont
 des archives de conception conservées pour traçabilité.
+
+Le contrat d’appel entrant interopérable est défini, avec vecteurs exacts, dans
+`docs/MAER_CALL_PROTOCOL_V1.md`. Les clients Android et Windows doivent utiliser
+la forme canonique riche `mode + issued + expires + room` ; l’ancienne forme
+réduite n’est pas considérée compatible.
 
 ## Développement
 
@@ -67,7 +79,9 @@ géométrie du rail, de la liste et de la conversation, les trois actions
 d’appel ainsi que les couleurs MAER, puis écrit une capture dans le dossier
 temporaire du système. Le chemin et les mesures contrôlées sont affichés en
 JSON. La variable facultative `MAER_VISUAL_OUTPUT` permet de choisir un autre
-emplacement pour la capture.
+emplacement pour la capture. Une seconde sonde initialise le vrai bundle
+Converse.js sans compte XMPP et vérifie son DOM ainsi que l’injection MAER ;
+elle ne remplace pas une capture du binaire authentifié.
 
 ## Installation Windows
 
@@ -75,9 +89,9 @@ emplacement pour la capture.
 npm run dist
 ```
 
-L’installateur NSIS x64 est généré sous `dist/`. La candidate locale 1.2.0 a
+L’installateur NSIS x64 est généré sous `dist/`. La candidate locale 1.3.0 a
 été construite et validée à partir des sources actuelles ; voir
-`docs/RELEASE_REPORT_1.2.0.md`. Elle n'est pas une release publique signée :
+`docs/RELEASE_REPORT_1.3.0.md`. Elle n'est pas une release publique signée :
 les conditions restantes sont détaillées dans `docs/RELEASE_POLICY.md`.
 
 ## Sécurité
@@ -90,9 +104,10 @@ les conditions restantes sont détaillées dans `docs/RELEASE_POLICY.md`.
 - politique de permissions Electron fermée par défaut : seules les
   permissions `media` et `notifications` sont admissibles depuis cette même
   frame de confiance ;
-- navigation distante interdite ;
-- réunions ouvertes uniquement dans le navigateur système, sans iframe ni
-  extension de la politique CSP de l’application ;
+- navigation distante interdite dans la fenêtre principale ;
+- réunions ouvertes uniquement dans une fenêtre MAER isolée et éphémère,
+  limitée à `https://meet.jit.si/MAER-*` ; ces réunions utilisent actuellement
+  le service Jitsi public et ne constituent pas une pile Jingle/TURN MAER ;
 - les neuf fusibles de sécurité Electron sont déclarés explicitement et leur
   état est contrôlé sur l'exécutable empaqueté ;
 - OAuth QR limité au scope `sasl_auth` ;
@@ -101,4 +116,6 @@ les conditions restantes sont détaillées dans `docs/RELEASE_POLICY.md`.
 
 ## Licence
 
-GPL-3.0-or-later. Voir `LICENSE` et `THIRD_PARTY_NOTICES.md`.
+GPL-3.0-or-later pour le code. Voir `LICENSE`, `THIRD_PARTY_NOTICES.md` et
+`TRADEMARK_NOTICE.md` pour le statut séparé du nom, du logo et des éléments
+graphiques MAER.

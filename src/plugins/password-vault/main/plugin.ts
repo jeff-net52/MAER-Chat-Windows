@@ -7,6 +7,7 @@ import {
   parsePasswordVaultRequest,
   parsePasswordVaultResponse,
   type PasswordVaultCopyResult,
+  type PasswordVaultBackupResult,
   type PasswordVaultDeleteResult,
   type PasswordVaultEntrySummary,
   type PasswordVaultEntryUpdate,
@@ -16,6 +17,9 @@ import {
   type PasswordVaultResponse,
   type PasswordVaultStatus,
   type PasswordVaultSuccessResult,
+  type PasswordVaultUsernameCopyResult,
+  type PasswordVaultRevealResult,
+  type PasswordVaultOpenUrlResult,
 } from '../shared/contract'
 import { PasswordVaultStorageError } from './atomic-vault-storage'
 import {
@@ -42,6 +46,7 @@ import type {
   NativeVaultRevealInput,
   NativeVaultRevealedCredential,
   NativeVaultSaveInput,
+  NativeVaultSavedCredential,
   NativeVaultStatus,
 } from './native-vault-gateway'
 import {
@@ -51,6 +56,24 @@ import {
   type VaultSession,
   type VaultSessionSnapshot,
 } from './vault-session'
+import { decryptVaultBackup, encryptVaultBackup } from './vault-backup'
+
+export class PasswordVaultBackupError extends Error {
+  constructor(
+    message: string,
+    readonly kind: 'invalid' | 'io',
+  ) {
+    super(message)
+    this.name = 'PasswordVaultBackupError'
+  }
+}
+
+class PasswordVaultRevealCancelledError extends Error {
+  constructor() {
+    super('Affichage du mot de passe annulé.')
+    this.name = 'PasswordVaultRevealCancelledError'
+  }
+}
 
 function status(snapshot: VaultSessionSnapshot): PasswordVaultStatus {
   return Object.freeze({ state: snapshot.state, entryCount: snapshot.entryCount })
@@ -60,6 +83,9 @@ function safeFailure(error: unknown): {
   code: PasswordVaultErrorCode
   message: string
 } {
+  if (error instanceof PasswordVaultRevealCancelledError) {
+    return { code: 'cancelled', message: error.message }
+  }
   if (error instanceof PasswordVaultSessionError) {
     switch (error.code) {
       case 'uninitialized':
@@ -91,6 +117,11 @@ function safeFailure(error: unknown): {
     return error.kind === 'corrupt'
       ? { code: 'corrupt-vault', message: 'Le coffre local ne peut pas être authentifié.' }
       : { code: 'storage-unavailable', message: 'Le stockage sécurisé local est indisponible.' }
+  }
+  if (error instanceof PasswordVaultBackupError) {
+    return error.kind === 'invalid'
+      ? { code: 'corrupt-vault', message: error.message }
+      : { code: 'storage-unavailable', message: error.message }
   }
   return { code: 'internal', message: 'Le coffre est temporairement indisponible.' }
 }
@@ -133,6 +164,12 @@ export interface PasswordVaultOperations {
   delete(entryId: string): Promise<PasswordVaultDeleteResult>
   generate(length: number): Promise<string>
   copy(entryId: string): Promise<PasswordVaultCopyResult>
+  copyUsername(entryId: string): Promise<PasswordVaultUsernameCopyResult>
+  reveal(entryId: string): Promise<PasswordVaultRevealResult>
+  openUrl(entryId: string): Promise<PasswordVaultOpenUrlResult>
+  exportBackup(passphrase: string): Promise<PasswordVaultBackupResult>
+  importBackup(passphrase: string): Promise<PasswordVaultBackupResult>
+  reset(): Promise<PasswordVaultStatus>
   dispose(): Promise<void>
 }
 
@@ -140,6 +177,24 @@ export interface PasswordVaultBrowserExtensionResources {
   openFolder(): Promise<void>
   openGuide(): Promise<void>
 }
+
+export interface PasswordVaultBackupFiles {
+  save(data: Uint8Array): Promise<boolean>
+  load(): Promise<Uint8Array | undefined>
+}
+
+export interface PasswordVaultExternalResources {
+  openUrl(url: string): Promise<void>
+}
+
+const unavailableBackupFiles: PasswordVaultBackupFiles = Object.freeze({
+  async save() { throw new Error('Backup resources unavailable') },
+  async load() { throw new Error('Backup resources unavailable') },
+})
+
+const unavailableExternalResources: PasswordVaultExternalResources = Object.freeze({
+  async openUrl() { throw new Error('External resources unavailable') },
+})
 
 const unavailableBrowserExtensionResources: PasswordVaultBrowserExtensionResources =
   Object.freeze({
@@ -159,6 +214,7 @@ export class PasswordVaultController {
     private readonly operations: PasswordVaultOperations,
     private readonly browserExtensions: PasswordVaultBrowserExtensionResources =
       unavailableBrowserExtensionResources,
+    private readonly confirmReveal: (entryId: string) => Promise<boolean> = async () => false,
   ) {}
 
   handle(value: unknown): Promise<PasswordVaultResponse> {
@@ -223,6 +279,21 @@ export class PasswordVaultController {
         return success(request, { password: await this.operations.generate(request.length) })
       case 'copy':
         return success(request, await this.operations.copy(request.entryId))
+      case 'copy-username':
+        return success(request, await this.operations.copyUsername(request.entryId))
+      case 'reveal':
+        if (!(await this.confirmReveal(request.entryId))) {
+          throw new PasswordVaultRevealCancelledError()
+        }
+        return success(request, await this.operations.reveal(request.entryId))
+      case 'open-url':
+        return success(request, await this.operations.openUrl(request.entryId))
+      case 'export-backup':
+        return success(request, await this.operations.exportBackup(request.passphrase))
+      case 'import-backup':
+        return success(request, await this.operations.importBackup(request.passphrase))
+      case 'reset':
+        return success(request, await this.operations.reset())
       case 'open-extension-folder':
         await this.browserExtensions.openFolder()
         return success(request, { target: 'folder', opened: true })
@@ -302,7 +373,7 @@ function nativeSummary(entry: PasswordVaultEntrySummary): NativeVaultCredentialS
   })
 }
 
-class LocalPasswordVaultOperations implements PasswordVaultOperations {
+export class LocalPasswordVaultOperations implements PasswordVaultOperations {
   private readonly session: VaultSession<Kdbx>
   private readonly clipboardLease: ClipboardLease
 
@@ -311,8 +382,11 @@ class LocalPasswordVaultOperations implements PasswordVaultOperations {
     powerMonitor: VaultPowerLockSource,
     clipboard: PasswordVaultClipboard,
     private readonly randomIndex?: SecureRandomIndex,
+    private readonly backupFiles: PasswordVaultBackupFiles = unavailableBackupFiles,
+    private readonly externalResources: PasswordVaultExternalResources = unavailableExternalResources,
+    session?: VaultSession<Kdbx>,
   ) {
-    this.session = createWindowsPasswordVaultSession(vaultPath, powerMonitor)
+    this.session = session ?? createWindowsPasswordVaultSession(vaultPath, powerMonitor)
     this.clipboardLease = new ClipboardLease(clipboard)
   }
 
@@ -386,6 +460,114 @@ class LocalPasswordVaultOperations implements PasswordVaultOperations {
     })
   }
 
+  async copyUsername(entryId: string): Promise<PasswordVaultUsernameCopyResult> {
+    const { epoch } = await this.unlockedSnapshot()
+    const username = await this.session.inspect(epoch, (database) => {
+      const entry = listPasswordVaultEntries(database as Kdbx).find((candidate) => candidate.id === entryId)
+      if (!entry) throw new PasswordVaultEntryError("L’entrée demandée est introuvable.", 'not-found')
+      return entry.username
+    })
+    this.clipboardLease.copy(username)
+    return Object.freeze({
+      entryId,
+      usernameCopied: true,
+      clearAfterSeconds: PASSWORD_VAULT_CLIPBOARD_CLEAR_SECONDS,
+    })
+  }
+
+  async reveal(entryId: string): Promise<PasswordVaultRevealResult> {
+    const { epoch } = await this.unlockedSnapshot()
+    const password = await this.session.inspect(epoch, (database) =>
+      passwordForClipboard(database as Kdbx, entryId),
+    )
+    return Object.freeze({ entryId, password })
+  }
+
+  async openUrl(entryId: string): Promise<PasswordVaultOpenUrlResult> {
+    const { epoch } = await this.unlockedSnapshot()
+    const url = await this.session.inspect(epoch, (database) => {
+      const entry = listPasswordVaultEntries(database as Kdbx).find((candidate) => candidate.id === entryId)
+      if (!entry) throw new PasswordVaultEntryError("L’entrée demandée est introuvable.", 'not-found')
+      return entry.url
+    })
+    await this.externalResources.openUrl(url)
+    return Object.freeze({ entryId, opened: true })
+  }
+
+  async exportBackup(passphrase: string): Promise<PasswordVaultBackupResult> {
+    const { epoch } = await this.unlockedSnapshot()
+    const entries = await this.session.inspect(epoch, (database) =>
+      listPasswordVaultEntries(database as Kdbx).map((entry) => ({
+        title: entry.title,
+        username: entry.username,
+        url: entry.url,
+        password: passwordForClipboard(database as Kdbx, entry.id),
+      })),
+    )
+    let encrypted: Uint8Array
+    try {
+      encrypted = await encryptVaultBackup(entries, passphrase)
+    } catch (error) {
+      throw new PasswordVaultBackupError('La phrase secrète ou le contenu du coffre est invalide.', 'invalid')
+    }
+    try {
+      const completed = await this.backupFiles.save(encrypted)
+      return Object.freeze({ operation: 'export', completed, entryCount: completed ? entries.length : 0 })
+    } catch (error) {
+      throw new PasswordVaultBackupError('Impossible d’enregistrer la sauvegarde chiffrée.', 'io')
+    } finally {
+      encrypted.fill(0)
+    }
+  }
+
+  async importBackup(passphrase: string): Promise<PasswordVaultBackupResult> {
+    let encrypted: Uint8Array | undefined
+    try {
+      encrypted = await this.backupFiles.load()
+    } catch (error) {
+      throw new PasswordVaultBackupError('Impossible de lire la sauvegarde chiffrée.', 'io')
+    }
+    if (!encrypted) return Object.freeze({ operation: 'import', completed: false, entryCount: 0 })
+
+    let entries: readonly PasswordVaultNewEntry[]
+    try {
+      entries = await decryptVaultBackup(encrypted, passphrase)
+    } catch (error) {
+      throw new PasswordVaultBackupError('Phrase secrète incorrecte ou sauvegarde endommagée.', 'invalid')
+    } finally {
+      encrypted.fill(0)
+    }
+
+    const current = await this.session.snapshot()
+    if (current.state === 'unlocked') {
+      // A single VaultSession mutation keeps the existing KDBX/key until the
+      // replacement has been encoded, authenticated and atomically committed.
+      // If either population or storage fails, VaultSession wipes the modified
+      // in-memory database and the previous authenticated file remains recoverable.
+      await this.session.mutate(current.epoch, (database) => {
+        const vault = database as Kdbx
+        for (const existing of listPasswordVaultEntries(vault)) {
+          deletePasswordVaultEntry(vault, existing.id)
+        }
+        for (const entry of entries) addPasswordVaultEntry(vault, entry)
+      })
+    } else {
+      // Recovery mode has no usable Windows key, so the old artifacts cannot be
+      // authenticated. The selected encrypted backup remains untouched and can
+      // always be retried if creating the fresh local vault fails.
+      await this.session.reset()
+      const initialized = await this.session.initialize()
+      await this.session.mutate(initialized.epoch, (database) => {
+        for (const entry of entries) addPasswordVaultEntry(database as Kdbx, entry)
+      })
+    }
+    return Object.freeze({ operation: 'import', completed: true, entryCount: entries.length })
+  }
+
+  async reset(): Promise<PasswordVaultStatus> {
+    return status(await this.session.reset())
+  }
+
   async nativeStatus(): Promise<NativeVaultStatus> {
     const snapshot = await this.session.snapshot()
     return Object.freeze({ state: snapshot.state === 'unlocked' ? 'ready' : 'locked' })
@@ -435,22 +617,36 @@ class LocalPasswordVaultOperations implements PasswordVaultOperations {
     })
   }
 
-  async nativeSave(input: NativeVaultSaveInput): Promise<void> {
+  async nativeSave(input: NativeVaultSaveInput): Promise<NativeVaultSavedCredential> {
     const originUrl = exactSecureNativeOrigin(input.origin)
     const credentialId = nativeBoundedString(input.credentialId, 128, true)
     const username = nativeBoundedString(input.username, 320, true)
     const password = nativeBoundedString(input.password, 4_096)
     const label = nativeBoundedString(input.label, 256, true)
     const { epoch } = await this.unlockedSnapshot()
-    await this.session.mutate(epoch, (database) => {
+    const savedCredentialId = await this.session.mutate(epoch, (database) => {
       if (!credentialId) {
-        addPasswordVaultEntry(database as Kdbx, {
+        const duplicate = listPasswordVaultEntries(database as Kdbx).find(
+          (entry) =>
+            entryBelongsToOrigin(entry, originUrl.origin) &&
+            entry.username.localeCompare(username, undefined, { sensitivity: 'base' }) === 0,
+        )
+        if (duplicate) {
+          updatePasswordVaultEntry(database as Kdbx, {
+            id: duplicate.id,
+            title: label || duplicate.title,
+            username,
+            url: duplicate.url,
+            password: { mode: 'replace', value: password },
+          })
+          return duplicate.id
+        }
+        return addPasswordVaultEntry(database as Kdbx, {
           title: label || originUrl.hostname,
           username,
           password,
           url: `${originUrl.origin}/`,
-        })
-        return
+        }).id
       }
       const existing = listPasswordVaultEntries(database as Kdbx).find(
         (entry) => entry.id === credentialId,
@@ -466,7 +662,9 @@ class LocalPasswordVaultOperations implements PasswordVaultOperations {
         url: existing.url,
         password: { mode: 'replace', value: password },
       })
+      return credentialId
     })
+    return Object.freeze({ credentialId: savedCredentialId })
   }
 
   async nativeGenerate(policy: NativeVaultGeneratePolicy): Promise<string> {
@@ -505,7 +703,7 @@ class LocalNativeVaultGateway implements NativeVaultGateway {
     return this.operations.nativeReveal(input)
   }
 
-  save(input: NativeVaultSaveInput): Promise<void> {
+  save(input: NativeVaultSaveInput): Promise<NativeVaultSavedCredential> {
     return this.operations.nativeSave(input)
   }
 
@@ -523,6 +721,8 @@ export interface PasswordVaultControllerOptions {
   powerMonitor: VaultPowerLockSource
   clipboard: PasswordVaultClipboard
   randomIndex?: SecureRandomIndex
+  backupFiles?: PasswordVaultBackupFiles
+  externalResources?: PasswordVaultExternalResources
 }
 
 /** Creates a reusable local controller without importing Electron or exposing VaultSession. */
@@ -535,12 +735,15 @@ export function createPasswordVaultController(
       options.powerMonitor,
       options.clipboard,
       options.randomIndex,
+      options.backupFiles,
+      options.externalResources,
     ),
   )
 }
 
 export interface PasswordVaultMainPluginOptions extends PasswordVaultControllerOptions {
   browserExtensions: PasswordVaultBrowserExtensionResources
+  confirmReveal?(entryId: string): Promise<boolean>
   publishNativeGateway?(gateway: NativeVaultGateway | undefined): void
 }
 
@@ -555,8 +758,14 @@ export function createPasswordVaultMainPlugin(
         options.powerMonitor,
         options.clipboard,
         options.randomIndex,
+        options.backupFiles,
+        options.externalResources,
       )
-      const controller = new PasswordVaultController(operations, options.browserExtensions)
+      const controller = new PasswordVaultController(
+        operations,
+        options.browserExtensions,
+        options.confirmReveal,
+      )
       const gateway = new LocalNativeVaultGateway(operations)
       context.ipc.handle('request', (value: unknown) => controller.handle(value))
       try {

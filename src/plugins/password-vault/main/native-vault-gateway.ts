@@ -42,6 +42,10 @@ export interface NativeVaultSaveInput {
   label: string
 }
 
+export interface NativeVaultSavedCredential {
+  credentialId: string
+}
+
 export interface NativeVaultGeneratePolicy {
   length: number
   lowercase: boolean
@@ -54,7 +58,7 @@ export interface NativeVaultGateway {
   status(): Promise<NativeVaultStatus>
   lookup(input: NativeVaultLookupInput): Promise<readonly NativeVaultCredentialSummary[]>
   reveal(input: NativeVaultRevealInput): Promise<NativeVaultRevealedCredential>
-  save(input: NativeVaultSaveInput): Promise<void>
+  save(input: NativeVaultSaveInput): Promise<NativeVaultSavedCredential>
   generate(policy: NativeVaultGeneratePolicy): Promise<string>
   lock(): Promise<void>
 }

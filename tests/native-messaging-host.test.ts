@@ -31,7 +31,7 @@ function transport(): NativeVaultRequestTransport {
       username: '',
       password: 'secret',
     })),
-    save: vi.fn(async () => undefined),
+    save: vi.fn(async (input) => ({ credentialId: input.credentialId || 'opaque-saved-id' })),
     generate: vi.fn(async () => 'generated'),
     lock: vi.fn(async () => undefined),
   }

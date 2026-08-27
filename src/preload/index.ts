@@ -8,6 +8,7 @@ import {
   mapPreparedPasswordLogin,
 } from './bridge-adapter'
 import { createDesktopPluginBridge } from '../plugins/core/preload/plugin-bridge'
+import { publicIpcError } from './ipc-error'
 
 const bridge: DesktopBridge = {
   async getBootstrap() {
@@ -46,6 +47,18 @@ const bridge: DesktopBridge = {
 
   async deleteCredential(jid) {
     return ipcRenderer.invoke(IPC.forgetCredential, jid)
+  },
+
+  async openMeeting(input) {
+    try {
+      await ipcRenderer.invoke(IPC.openMeeting, input)
+    } catch (error) {
+      throw publicIpcError(error, 'Impossible d’ouvrir la réunion MAER.')
+    }
+  },
+
+  async closeMeeting() {
+    await ipcRenderer.invoke(IPC.closeMeeting)
   },
 }
 

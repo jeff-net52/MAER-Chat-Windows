@@ -107,13 +107,13 @@ test('uses only the named native host and resolves a correlated response', async
 test('transmits save data but does not retain it in the pending request record', async () => {
   const { client, ports } = fixture();
   const pending = client.request('vault.save', 'https://example.org', {
-    username: 'alice', password: 'transient-secret', label: 'Example'
+    credentialId: '', username: 'alice', password: 'transient-secret', label: 'Example'
   });
   const request = ports[0].messages[0];
   assert.equal(request.payload.password, 'transient-secret');
   assert.equal(Object.prototype.hasOwnProperty.call(client.pending.get(request.id), 'payload'), false);
-  ports[0].onMessage.emit(responseFor(request, {}));
-  await pending;
+  ports[0].onMessage.emit(responseFor(request, { credentialId: 'credential-0001' }));
+  assert.deepEqual(await pending, { credentialId: 'credential-0001' });
   client.dispose();
 });
 

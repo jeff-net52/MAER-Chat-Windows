@@ -19,12 +19,14 @@ export interface VaultSessionSnapshot {
 export interface VaultSessionKeyStore {
   load(): Promise<Uint8Array | undefined>
   create(): Promise<Uint8Array>
+  delete?(): Promise<boolean>
 }
 
 export interface VaultSessionStorage<T> {
   hasArtifacts(): Promise<boolean>
   recover(secret: Uint8Array): Promise<T | undefined>
   write(value: T, secret: Uint8Array): Promise<void>
+  reset?(): Promise<void>
 }
 
 export interface VaultDatabaseLifecycle<T> {
@@ -231,6 +233,20 @@ export class VaultSession<T = Kdbx> {
     return this.enqueue(async () => {
       this.assertNotDisposed()
       this.lockInternal('locked')
+      return this.snapshotInternal()
+    })
+  }
+
+  reset(): Promise<VaultSessionSnapshot> {
+    return this.enqueue(async () => {
+      this.assertNotDisposed()
+      if (!this.storage.reset || !this.keyStore.delete) {
+        throw new Error('La réinitialisation sécurisée du coffre est indisponible.')
+      }
+      this.lockInternal('locked')
+      await this.storage.reset()
+      await this.keyStore.delete()
+      this.transitionLocked('uninitialized')
       return this.snapshotInternal()
     })
   }

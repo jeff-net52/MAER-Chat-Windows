@@ -24,7 +24,8 @@
   --maer-bubble-in: #ffffff;
   --maer-bubble-out: #dcecff;
   --maer-text: #111b21;
-  --maer-muted: #667781;
+  --maer-muted: #52616a;
+  --maer-author: #0068ad;
   --maer-icon: #54656f;
   --maer-border: #d7e0e5;
   --maer-divider: #e8edf0;
@@ -57,6 +58,7 @@
     --maer-bubble-out: #073f72;
     --maer-text: #e9f0f4;
     --maer-muted: #91a4af;
+    --maer-author: #48b7ff;
     --maer-icon: #b4c2ca;
     --maer-border: #2b3e49;
     --maer-divider: #22323b;
@@ -87,7 +89,8 @@ html[data-maer-theme="light"] {
   --maer-bubble-in: #ffffff;
   --maer-bubble-out: #dcecff;
   --maer-text: #111b21;
-  --maer-muted: #667781;
+  --maer-muted: #52616a;
+  --maer-author: #0068ad;
   --maer-icon: #54656f;
   --maer-border: #d7e0e5;
   --maer-divider: #e8edf0;
@@ -118,6 +121,7 @@ html[data-maer-theme="dark"] {
   --maer-bubble-out: #073f72;
   --maer-text: #e9f0f4;
   --maer-muted: #91a4af;
+  --maer-author: #48b7ff;
   --maer-icon: #b4c2ca;
   --maer-border: #2b3e49;
   --maer-divider: #22323b;
@@ -508,6 +512,13 @@ body.converse-fullscreen {
   text-align: center;
 }
 
+.maer-call-disclosure {
+  padding: 10px 12px;
+  background: var(--maer-panel-header);
+  border: 1px solid var(--maer-border);
+  border-radius: 8px;
+}
+
 .maer-feature-icon {
   display: inline-flex;
   width: 64px;
@@ -687,6 +698,41 @@ body.converse-fullscreen {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.maer-incoming-call {
+  position: fixed;
+  z-index: 1200;
+  right: 24px;
+  bottom: 24px;
+  width: min(380px, calc(100vw - 48px));
+  display: grid;
+  gap: 10px;
+  padding: 18px;
+  color: var(--maer-text, #10232d);
+  background: var(--maer-panel, #fff);
+  border: 1px solid var(--maer-border, #c8d5dc);
+  border-left: 5px solid var(--maer-cyan, #00a6c8);
+  border-radius: 14px;
+  box-shadow: 0 14px 40px rgb(0 0 0 / 28%);
+}
+
+.maer-incoming-call > span {
+  color: var(--maer-muted, #52616a);
+}
+
+.maer-incoming-call > div {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.maer-incoming-call button {
+  min-height: 40px;
+  padding: 0 16px;
+  border: 1px solid var(--maer-border, #c8d5dc);
+  border-radius: 999px;
+  cursor: pointer;
 }
 
 .maer-call-row strong {
@@ -1434,7 +1480,7 @@ body.converse-fullscreen {
 .conversejs .message.chat-msg .chat-msg__author {
   min-width: 0;
   overflow: hidden;
-  color: var(--maer-cyan);
+  color: var(--maer-author);
   font-family: var(--normal-font);
   font-size: 12px;
   font-weight: 650;

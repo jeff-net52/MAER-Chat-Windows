@@ -76,6 +76,29 @@ test('correlates native responses by request id and exact origin', () => {
   }, expected), Protocol.ProtocolViolation);
 });
 
+test('accepts and returns the credential id selected by save deduplication', () => {
+  const expected = { id: '12345678-test', origin: 'https://example.org', type: 'vault.save' };
+  const response = Protocol.validateResponse({
+    protocol: 'maer.password-vault',
+    version: 1,
+    id: expected.id,
+    type: 'response',
+    origin: expected.origin,
+    ok: true,
+    payload: { credentialId: 'credential-0001' }
+  }, expected);
+  assert.equal(response.payload.credentialId, 'credential-0001');
+  assert.throws(() => Protocol.validateResponse({
+    protocol: 'maer.password-vault',
+    version: 1,
+    id: expected.id,
+    type: 'response',
+    origin: expected.origin,
+    ok: true,
+    payload: {}
+  }, expected), Protocol.ProtocolViolation);
+});
+
 test('never accepts a password in lookup metadata', () => {
   assert.throws(() => Protocol.validateResponse({
     protocol: 'maer.password-vault',

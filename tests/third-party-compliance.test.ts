@@ -63,6 +63,7 @@ describe('public open-source release metadata', () => {
     expect(workflow).toContain('electron-builder --win --dir')
     expect(packagedVerifier).toContain("'LICENSE.electron.txt'")
     expect(packagedVerifier).toContain("'LICENSES.chromium.html'")
+    expect(packagedVerifier).toContain("'resources/licenses/TRADEMARK_NOTICE.md'")
     expect(packagedVerifier).toContain("'THIRD_PARTY_LICENSES/converse-MPL-2.0.txt'")
     expect(packagedVerifier).toContain("'THIRD_PARTY_LICENSES/libomemo-NOTICE.txt'")
   })

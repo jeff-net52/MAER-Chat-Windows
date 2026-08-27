@@ -231,7 +231,11 @@
       assertOnlyKeys(payload, ['password'], 'response payload');
       return { password: boundedString(payload.password, 'password', C.MAX_PASSWORD_LENGTH) };
     }
-    if (requestType === 'vault.save' || requestType === 'vault.lock') {
+    if (requestType === 'vault.save') {
+      assertOnlyKeys(payload, ['credentialId'], 'response payload');
+      return { credentialId: boundedString(payload.credentialId, 'credentialId', C.MAX_CREDENTIAL_ID_LENGTH) };
+    }
+    if (requestType === 'vault.lock') {
       assertOnlyKeys(payload, [], 'response payload');
       return {};
     }
