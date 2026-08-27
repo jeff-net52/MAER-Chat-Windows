@@ -12,6 +12,8 @@ export const PASSWORD_VAULT_ACTIONS = [
   'delete',
   'generate',
   'copy',
+  'open-extension-folder',
+  'open-extension-guide',
 ] as const
 
 export type PasswordVaultAction = (typeof PASSWORD_VAULT_ACTIONS)[number]
@@ -71,7 +73,14 @@ interface PasswordVaultRequestBase {
 
 export type PasswordVaultRequest =
   | (PasswordVaultRequestBase & {
-      action: 'status' | 'initialize' | 'unlock' | 'lock' | 'list'
+      action:
+        | 'status'
+        | 'initialize'
+        | 'unlock'
+        | 'lock'
+        | 'list'
+        | 'open-extension-folder'
+        | 'open-extension-guide'
     })
   | (PasswordVaultRequestBase & {
       action: 'search'
@@ -109,6 +118,11 @@ export interface PasswordVaultCopyResult {
   clearAfterSeconds: number
 }
 
+export interface PasswordVaultBrowserExtensionOpenResult {
+  target: 'folder' | 'guide'
+  opened: true
+}
+
 export type PasswordVaultSuccessResult =
   | PasswordVaultStatus
   | PasswordVaultEntrySummary
@@ -116,6 +130,7 @@ export type PasswordVaultSuccessResult =
   | PasswordVaultDeleteResult
   | PasswordVaultGeneratedPassword
   | PasswordVaultCopyResult
+  | PasswordVaultBrowserExtensionOpenResult
 
 export interface PasswordVaultSuccessResponse {
   version: typeof PASSWORD_VAULT_PROTOCOL_VERSION
@@ -358,6 +373,8 @@ export function parsePasswordVaultRequest(value: unknown): PasswordVaultRequest 
     case 'unlock':
     case 'lock':
     case 'list':
+    case 'open-extension-folder':
+    case 'open-extension-guide':
       exactKeys(input, ['version', 'requestId', 'action'], 'La requête du coffre')
       return Object.freeze({ ...base, action: input.action })
     case 'search':
@@ -461,6 +478,17 @@ export function parsePasswordVaultResponse(value: unknown): PasswordVaultRespons
         copied: true as const,
         clearAfterSeconds: PASSWORD_VAULT_CLIPBOARD_CLEAR_SECONDS,
       })
+      break
+    }
+    case 'open-extension-folder':
+    case 'open-extension-guide': {
+      const opened = record(input.result, "L’ouverture de l’extension navigateur")
+      exactKeys(opened, ['target', 'opened'], "L’ouverture de l’extension navigateur")
+      const expectedTarget = input.action === 'open-extension-folder' ? 'folder' : 'guide'
+      if (opened.opened !== true || opened.target !== expectedTarget) {
+        throw new Error("L’ouverture de l’extension navigateur est invalide.")
+      }
+      result = Object.freeze({ target: expectedTarget, opened: true as const })
       break
     }
     default:

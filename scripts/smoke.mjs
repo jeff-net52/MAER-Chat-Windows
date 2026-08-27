@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, readFile, rm, stat } from 'node:fs/promises'
 import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
@@ -274,6 +274,60 @@ async function verifyPackagedNativeMessaging(executablePath) {
   return true
 }
 
+async function verifyBrowserExtensionResources(executablePath) {
+  const extensionRoot = executablePath
+    ? path.join(
+        path.dirname(executablePath),
+        'resources',
+        'browser-extensions',
+        'maer-password-vault',
+      )
+    : path.join(root, 'browser-extensions', 'maer-password-vault')
+  const guidePath = executablePath
+    ? path.join(extensionRoot, 'installation.md')
+    : path.join(extensionRoot, 'docs', 'installation.md')
+  const chromiumManifestPath = path.join(extensionRoot, 'dist', 'chromium', 'manifest.json')
+  const firefoxManifestPath = path.join(extensionRoot, 'dist', 'firefox', 'manifest.json')
+  const requiredFiles = [
+    guidePath,
+    chromiumManifestPath,
+    firefoxManifestPath,
+    path.join(extensionRoot, 'dist', 'chromium', 'BUILD-METADATA.json'),
+    path.join(extensionRoot, 'dist', 'chromium', 'NOTICE.txt'),
+    path.join(extensionRoot, 'dist', 'chromium', 'assets', 'icon-128.png'),
+    path.join(extensionRoot, 'dist', 'firefox', 'BUILD-METADATA.json'),
+    path.join(extensionRoot, 'dist', 'firefox', 'NOTICE.txt'),
+    path.join(extensionRoot, 'dist', 'firefox', 'assets', 'icon-128.png'),
+  ]
+  for (const requiredFile of requiredFiles) {
+    assert.equal((await stat(requiredFile)).isFile(), true, `Missing resource: ${requiredFile}`)
+  }
+
+  const [chromiumManifest, firefoxManifest, guide] = await Promise.all([
+    readFile(chromiumManifestPath, 'utf8').then(JSON.parse),
+    readFile(firefoxManifestPath, 'utf8').then(JSON.parse),
+    readFile(guidePath, 'utf8'),
+  ])
+  assert.equal(chromiumManifest.manifest_version, 3)
+  assert.equal(firefoxManifest.manifest_version, 3)
+  assert.equal(chromiumManifest.name, 'MAER Chat - Coffre de mots de passe')
+  assert.equal(firefoxManifest.name, chromiumManifest.name)
+  assert.equal(
+    firefoxManifest.browser_specific_settings?.gecko?.id,
+    'password-vault@maer.fr',
+  )
+  for (const instruction of [
+    'edge://extensions',
+    'chrome://extensions',
+    'about:debugging#/runtime/this-firefox',
+    'dist/chromium',
+    'dist/firefox/manifest.json',
+  ]) {
+    assert.ok(guide.includes(instruction), `Installation guide lacks ${instruction}`)
+  }
+  return true
+}
+
 try {
   markPhase('launch')
   const smokeEnvironment = {
@@ -327,6 +381,22 @@ try {
     page.evaluate(() => window.maerPlugins.passwordVault.status()),
   )
   assert.deepEqual(pluginStatus, { state: 'locked', entryCount: null })
+  markPhase('browser-extension-resources')
+  const browserExtensionsReady = await withDeadline(
+    'browser-extension resource verification',
+    verifyBrowserExtensionResources(packagedExecutablePath),
+  )
+  const browserExtensionActions = await withDeadline(
+    'browser-extension main-only actions',
+    page.evaluate(async () => Promise.all([
+      window.maerPlugins.passwordVault.openExtensionFolder(),
+      window.maerPlugins.passwordVault.openExtensionGuide(),
+    ])),
+  )
+  assert.deepEqual(browserExtensionActions, [
+    { target: 'folder', opened: true },
+    { target: 'guide', opened: true },
+  ])
   markPhase('native-messaging')
   const nativeMessagingReady = await withDeadline(
     'packaged Native Messaging verification',
@@ -389,6 +459,7 @@ try {
     wordmarkLoaded: true,
     credentialFormAccessible: true,
     pluginPlatformReady: true,
+    browserExtensionsReady,
     nativeMessagingReady,
     omemoWasmLoaded: true,
     networkFailureHandled,

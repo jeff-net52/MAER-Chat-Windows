@@ -143,6 +143,7 @@ export class PasswordVaultPanel {
       alert.textContent = message
       section.append(alert)
     }
+    section.append(this.browserExtensionSection())
     this.root.replaceChildren(section)
   }
 
@@ -187,7 +188,7 @@ export class PasswordVaultPanel {
     detail.className = 'maer-vault-detail'
     detail.dataset.vaultDetail = ''
     body.append(list, detail)
-    shell.append(toolbar, searchRow, notice, body)
+    shell.append(toolbar, searchRow, notice, body, this.browserExtensionSection())
     this.root.replaceChildren(shell)
     this.renderEntries()
     void this.loadEntries(this.query)
@@ -370,6 +371,59 @@ export class PasswordVaultPanel {
     if (notice) notice.textContent = message
   }
 
+  private extensionNotice(message: string): void {
+    const notice = this.root.querySelector<HTMLElement>('[data-vault-extension-notice]')
+    if (notice) notice.textContent = message
+  }
+
+  private browserExtensionSection(): HTMLElement {
+    const section = document.createElement('section')
+    section.className = 'maer-vault-extension'
+    section.setAttribute('aria-labelledby', 'maer-vault-extension-title')
+
+    const copy = document.createElement('div')
+    copy.className = 'maer-vault-extension-copy'
+    const heading = document.createElement('h3')
+    heading.id = 'maer-vault-extension-title'
+    heading.textContent = 'Extension navigateur MAER'
+    const description = document.createElement('p')
+    description.textContent =
+      'Installez le remplissage sécurisé du coffre dans Edge, Chrome ou Firefox.'
+    copy.append(heading, description)
+
+    const actions = document.createElement('div')
+    actions.className = 'maer-vault-extension-actions'
+    actions.append(
+      button('Ouvrir le dossier', 'open-extension-folder', 'maer-vault-secondary'),
+      button('Ouvrir le guide', 'open-extension-guide', 'maer-vault-link'),
+    )
+
+    const instructions = document.createElement('details')
+    instructions.className = 'maer-vault-extension-instructions'
+    const summary = document.createElement('summary')
+    summary.textContent = 'Instructions Edge, Chrome et Firefox'
+    const list = document.createElement('ol')
+    for (const instruction of [
+      'Edge : edge://extensions → Mode développeur → Charger l’extension non empaquetée → dist/chromium.',
+      'Chrome : chrome://extensions → Mode développeur → Charger l’extension non empaquetée → dist/chromium.',
+      'Firefox : about:debugging#/runtime/this-firefox → Charger un module complémentaire temporaire → dist/firefox/manifest.json.',
+    ]) {
+      const item = document.createElement('li')
+      item.textContent = instruction
+      list.append(item)
+    }
+    instructions.append(summary, list)
+
+    const notice = document.createElement('p')
+    notice.className = 'maer-vault-extension-notice'
+    notice.dataset.vaultExtensionNotice = ''
+    notice.setAttribute('role', 'status')
+    notice.setAttribute('aria-live', 'polite')
+
+    section.append(copy, actions, instructions, notice)
+    return section
+  }
+
   private handleError(error: unknown): void {
     if (this.disposed) return
     if (error instanceof PasswordVaultBridgeError) {
@@ -500,6 +554,31 @@ export class PasswordVaultPanel {
             target.disabled = false
           })
         break
+      case 'open-extension-folder':
+      case 'open-extension-guide': {
+        target.disabled = true
+        this.extensionNotice('Ouverture de la ressource locale…')
+        const operation = action === 'open-extension-folder'
+          ? this.bridge.openExtensionFolder()
+          : this.bridge.openExtensionGuide()
+        void operation
+          .then(() => {
+            if (!this.disposed) {
+              this.extensionNotice(
+                action === 'open-extension-folder'
+                  ? 'Dossier de l’extension ouvert.'
+                  : 'Guide d’installation ouvert ou sélectionné dans son dossier.',
+              )
+            }
+          })
+          .catch((error: unknown) => {
+            if (!this.disposed) this.extensionNotice(this.message(error))
+          })
+          .finally(() => {
+            target.disabled = false
+          })
+        break
+      }
     }
   }
 

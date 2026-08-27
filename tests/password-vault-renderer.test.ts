@@ -29,6 +29,14 @@ function fakeBridge(overrides: Partial<PasswordVaultBridge> = {}): PasswordVault
       copied: true as const,
       clearAfterSeconds: 30,
     })),
+    openExtensionFolder: vi.fn(async () => ({
+      target: 'folder' as const,
+      opened: true as const,
+    })),
+    openExtensionGuide: vi.fn(async () => ({
+      target: 'guide' as const,
+      opened: true as const,
+    })),
     ...overrides,
   }
 }
@@ -123,6 +131,33 @@ describe('Firefox-like Password Vault renderer panel', () => {
     cleanups.pop()?.()
     expect(pending.value).toBe('')
     expect(root.textContent).toBe('')
+    expect(localStorage.length).toBe(0)
+  })
+
+  it('shows exact browser instructions and calls only path-free main actions', async () => {
+    const bridge = fakeBridge({
+      status: vi.fn(async () => ({ state: 'locked' as const, entryCount: null })),
+    })
+    const root = mount(bridge)
+    await vi.waitFor(() => expect(root.textContent).toContain('Extension navigateur MAER'))
+
+    expect(root.textContent).toContain('edge://extensions')
+    expect(root.textContent).toContain('chrome://extensions')
+    expect(root.textContent).toContain('about:debugging#/runtime/this-firefox')
+    expect(root.textContent).toContain('dist/chromium')
+    expect(root.textContent).toContain('dist/firefox/manifest.json')
+
+    root.querySelector<HTMLButtonElement>(
+      '[data-vault-action="open-extension-folder"]',
+    )?.click()
+    await vi.waitFor(() => expect(bridge.openExtensionFolder).toHaveBeenCalledWith())
+    expect(root.textContent).toContain('Dossier de l’extension ouvert')
+
+    root.querySelector<HTMLButtonElement>(
+      '[data-vault-action="open-extension-guide"]',
+    )?.click()
+    await vi.waitFor(() => expect(bridge.openExtensionGuide).toHaveBeenCalledWith())
+    expect(root.textContent).toContain('Guide d’installation ouvert ou sélectionné')
     expect(localStorage.length).toBe(0)
   })
 })

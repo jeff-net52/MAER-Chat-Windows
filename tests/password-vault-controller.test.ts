@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
   PasswordVaultController,
+  type PasswordVaultBrowserExtensionResources,
   type PasswordVaultOperations,
 } from '../src/plugins/password-vault/main/plugin'
 import type {
@@ -173,6 +174,33 @@ describe('Password Vault serialized main controller', () => {
       ...request('status'),
       password: 'smuggled',
     })).rejects.toThrow(/champ inconnu/i)
+    await controller.dispose()
+  })
+
+  it('opens only the two injected browser-extension resources without a renderer path', async () => {
+    const operations = new MemoryOperations()
+    const browserExtensions: PasswordVaultBrowserExtensionResources = {
+      openFolder: vi.fn(async () => undefined),
+      openGuide: vi.fn(async () => undefined),
+    }
+    const controller = new PasswordVaultController(operations, browserExtensions)
+
+    await expect(controller.handle(request('open-extension-folder'))).resolves.toMatchObject({
+      ok: true,
+      action: 'open-extension-folder',
+      result: { target: 'folder', opened: true },
+    })
+    await expect(controller.handle(request('open-extension-guide'))).resolves.toMatchObject({
+      ok: true,
+      action: 'open-extension-guide',
+      result: { target: 'guide', opened: true },
+    })
+    expect(browserExtensions.openFolder).toHaveBeenCalledWith()
+    expect(browserExtensions.openGuide).toHaveBeenCalledWith()
+    await expect(controller.handle(request('open-extension-folder', {
+      path: 'C:\\Windows',
+    }))).rejects.toThrow(/champ inconnu/i)
+    expect(browserExtensions.openFolder).toHaveBeenCalledTimes(1)
     await controller.dispose()
   })
 })

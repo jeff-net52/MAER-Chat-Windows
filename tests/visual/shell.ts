@@ -30,6 +30,12 @@ if (vaultPreview) {
       async copy() {
         return { entryId: previewEntry.id, copied: true as const, clearAfterSeconds: 30 }
       },
+      async openExtensionFolder() {
+        return { target: 'folder' as const, opened: true as const }
+      },
+      async openExtensionGuide() {
+        return { target: 'guide' as const, opened: true as const }
+      },
     }),
   })
 }

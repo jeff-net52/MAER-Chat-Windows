@@ -62,6 +62,10 @@ describe('main-only NativeVaultGateway', () => {
       vaultPath: join(directory, 'vault.kdbx'),
       powerMonitor,
       clipboard,
+      browserExtensions: {
+        openFolder: vi.fn(async () => undefined),
+        openGuide: vi.fn(async () => undefined),
+      },
       publishNativeGateway: (value) => {
         gateway = value
       },
