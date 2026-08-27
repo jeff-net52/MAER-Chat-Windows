@@ -171,20 +171,33 @@ describe('Native Messaging launch identity and installation', () => {
     ) as {
       build: {
         beforePack: string
-        electronFuses: Record<string, boolean>
+        afterPack: string
+        electronFuses?: Record<string, boolean>
         extraResources: unknown
         nsis: { include: string }
       }
     }
     expect(packageJson.build.beforePack).toBe('scripts/build-native-host-shim.mjs')
-    expect(packageJson.build.electronFuses).toEqual({
-      runAsNode: false,
-      enableCookieEncryption: true,
-      enableNodeOptionsEnvironmentVariable: false,
-      enableNodeCliInspectArguments: false,
-      enableEmbeddedAsarIntegrityValidation: true,
-      onlyLoadAppFromAsar: true,
-    })
+    expect(packageJson.build.afterPack).toBe('scripts/apply-electron-fuses.mjs')
+    expect(packageJson.build.electronFuses).toBeUndefined()
+    const fuseScript = readFileSync(
+      resolve(repository, 'scripts/apply-electron-fuses.mjs'),
+      'utf8',
+    )
+    expect(fuseScript).toContain('strictlyRequireAllFuses: true')
+    for (const fuse of [
+      'RunAsNode',
+      'EnableCookieEncryption',
+      'EnableNodeOptionsEnvironmentVariable',
+      'EnableNodeCliInspectArguments',
+      'EnableEmbeddedAsarIntegrityValidation',
+      'OnlyLoadAppFromAsar',
+      'LoadBrowserProcessSpecificV8Snapshot',
+      'GrantFileProtocolExtraPrivileges',
+      'WasmTrapHandlers',
+    ]) {
+      expect(fuseScript).toContain(`FuseV1Options.${fuse}`)
+    }
     expect(packageJson.build.extraResources).toBeDefined()
     expect(packageJson.build.nsis.include).toBe('build/installer.nsh')
   })

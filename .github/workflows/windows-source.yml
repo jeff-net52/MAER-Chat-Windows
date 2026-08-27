@@ -64,6 +64,9 @@ jobs:
       - name: Verify licenses in the packaged application
         run: npm run verify:licenses:packaged
 
+      - name: Verify every Electron fuse is explicit
+        run: npm run verify:fuses:packaged
+
       - name: Smoke-test the actual packaged executable and Native Messaging host
         run: npm run test:e2e:packaged
 

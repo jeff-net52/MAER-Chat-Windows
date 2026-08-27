@@ -44,6 +44,7 @@ npm run test:visual
 npm run build
 npx --no-install electron-builder --win --dir
 npm run verify:licenses:packaged
+npm run verify:fuses:packaged
 npm run test:e2e:packaged
 npm run test:e2e
 npm run verify --prefix browser-extensions/maer-password-vault

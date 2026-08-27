@@ -20,6 +20,7 @@
     "generate:sbom": "node scripts/generate-sboms.mjs",
     "verify:licenses": "node scripts/verify-third-party-compliance.mjs",
     "verify:licenses:packaged": "node scripts/verify-packaged-licenses.mjs",
+    "verify:fuses:packaged": "node scripts/verify-electron-fuses.mjs",
     "typecheck": "tsc --noEmit",
     "build": "npm run typecheck && npm run test && npm run verify:licenses && electron-vite build && node scripts/verify-renderer-assets.mjs",
     "dist": "npm run build && electron-builder --win nsis",
@@ -33,6 +34,7 @@
     "qrcode": "1.5.4"
   },
   "devDependencies": {
+    "@electron/fuses": "2.1.0",
     "@types/node": "25.9.5",
     "@types/qrcode": "1.5.6",
     "electron": "43.4.1",
@@ -53,14 +55,7 @@
       "buildResources": "assets"
     },
     "beforePack": "scripts/build-native-host-shim.mjs",
-    "electronFuses": {
-      "runAsNode": false,
-      "enableCookieEncryption": true,
-      "enableNodeOptionsEnvironmentVariable": false,
-      "enableNodeCliInspectArguments": false,
-      "enableEmbeddedAsarIntegrityValidation": true,
-      "onlyLoadAppFromAsar": true
-    },
+    "afterPack": "scripts/apply-electron-fuses.mjs",
     "files": [
       "out/**/*",
       "package.json",

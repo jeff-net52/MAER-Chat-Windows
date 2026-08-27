@@ -145,6 +145,13 @@ assert.match(workflow, /npm run generate:sbom/u)
 assert.match(workflow, /npm run test:visual/u)
 assert.match(workflow, /npm run verify:licenses:packaged/u)
 assert.equal(
+  packageMetadata.scripts?.['verify:fuses:packaged'],
+  'node scripts/verify-electron-fuses.mjs',
+)
+assert.equal(packageMetadata.build?.afterPack, 'scripts/apply-electron-fuses.mjs')
+assert.equal(packageMetadata.build?.electronFuses, undefined)
+assert.match(workflow, /npm run verify:fuses:packaged/u)
+assert.equal(
   packageMetadata.scripts?.['test:e2e:packaged'],
   'node scripts/smoke.mjs --executable "dist/win-unpacked/MAER Chat.exe"',
 )
