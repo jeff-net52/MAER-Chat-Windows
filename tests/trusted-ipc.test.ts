@@ -3,7 +3,7 @@ import { installDenyByDefaultPermissionPolicy } from '../src/main/permission-pol
 import { TrustedIpcMain, TrustedRendererGuard } from '../src/main/trusted-ipc'
 
 function trustedFixture() {
-  const mainFrame = { url: 'file:///C:/MAER/out/renderer/index.html' }
+  const mainFrame = { url: 'maer-chat://app/' }
   const webContents = { mainFrame }
   const guard = new TrustedRendererGuard({
     expectedUrl: mainFrame.url,
@@ -29,7 +29,7 @@ describe('trusted renderer IPC boundary', () => {
       } as never),
     ).toThrow(/refusée/i)
 
-    mainFrame.url = 'file:///C:/MAER/out/renderer/other.html'
+    mainFrame.url = 'maer-chat://app/other.html'
     expect(() =>
       guard.assertTrustedIpc({ sender: webContents, senderFrame: mainFrame } as never),
     ).toThrow(/refusée/i)
@@ -83,14 +83,14 @@ describe('renderer permission policy', () => {
     if (!check || !request) throw new Error('Politique de permissions absente')
 
     const details = { isMainFrame: true, requestingUrl: mainFrame.url }
-    expect(check(webContents, 'media', 'file://', details)).toBe(true)
-    expect(check(webContents, 'notifications', 'file://', details)).toBe(true)
-    expect(check(webContents, 'geolocation', 'file://', details)).toBe(false)
-    expect(check(webContents, 'media', 'file://', { ...details, isMainFrame: false })).toBe(false)
+    expect(check(webContents, 'media', 'maer-chat://app', details)).toBe(true)
+    expect(check(webContents, 'notifications', 'maer-chat://app', details)).toBe(true)
+    expect(check(webContents, 'geolocation', 'maer-chat://app', details)).toBe(false)
+    expect(check(webContents, 'media', 'maer-chat://app', { ...details, isMainFrame: false })).toBe(false)
     expect(
-      check(webContents, 'media', 'file://', {
+      check(webContents, 'media', 'maer-chat://app', {
         ...details,
-        requestingUrl: 'file:///C:/MAER/out/renderer/other.html',
+        requestingUrl: 'maer-chat://app/other.html',
       }),
     ).toBe(false)
 

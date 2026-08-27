@@ -1,4 +1,4 @@
-import { pathToFileURL } from 'node:url'
+import { MAER_RENDERER_URL } from './renderer-protocol'
 
 export type RendererEntry =
   | Readonly<{ source: 'development'; url: string }>
@@ -17,7 +17,7 @@ export function resolveRendererEntry(
   }
   return Object.freeze({
     source: 'bundled',
-    url: pathToFileURL(bundledFilePath).href,
+    url: MAER_RENDERER_URL,
     filePath: bundledFilePath,
   })
 }

@@ -89,9 +89,9 @@ elle ne remplace pas une capture du binaire authentifié.
 npm run dist
 ```
 
-L’installateur NSIS x64 est généré sous `dist/`. La candidate locale 1.3.0 a
+L’installateur NSIS x64 est généré sous `dist/`. La candidate locale 1.3.1 a
 été construite et validée à partir des sources actuelles ; voir
-`docs/RELEASE_REPORT_1.3.0.md`. Elle n'est pas une release publique signée :
+`docs/RELEASE_REPORT_1.3.1.md`. Elle n'est pas une release publique signée :
 les conditions restantes sont détaillées dans `docs/RELEASE_POLICY.md`.
 
 ## Sécurité
@@ -99,8 +99,8 @@ les conditions restantes sont détaillées dans `docs/RELEASE_POLICY.md`.
 - `contextIsolation`, sandbox Electron et CSP activés ;
 - aucun accès Node depuis le renderer ;
 - chaque appel IPC est accepté uniquement depuis le `webContents` attendu, sa
-  frame principale et l’URL/origine locale exacte ; aucun pont IPC générique
-  n’est exposé au renderer ;
+  frame principale et l’origine privilégiée exacte `maer-chat://app` ; aucun
+  pont IPC générique n’est exposé au renderer ;
 - politique de permissions Electron fermée par défaut : seules les
   permissions `media` et `notifications` sont admissibles depuis cette même
   frame de confiance ;

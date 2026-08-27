@@ -23,7 +23,8 @@ const fake = vi.hoisted(() => {
   const state: {
     plugin?: { initialize?: () => void; _converse?: { api: typeof privateApi } }
     lastConfiguration?: Record<string, unknown>
-  } = {}
+    mode: 'connected' | 'disconnected' | 'rejected'
+  } = { mode: 'connected' }
   const runtime = {
     plugins: {
       add: vi.fn((_name: string, plugin: typeof state.plugin) => {
@@ -35,7 +36,9 @@ const fake = vi.hoisted(() => {
       if (!state.plugin) throw new Error('Le plugin de connexion n’est pas enregistré')
       state.plugin._converse = { api: privateApi }
       state.plugin.initialize?.()
-      listeners.get('connected')?.()
+      if (state.mode === 'rejected') throw new Error('initialization failed')
+      if (state.mode === 'disconnected') listeners.get('disconnected')?.('not-authorized')
+      else listeners.get('connected')?.()
     }),
     env: {
       Strophe: {
@@ -63,6 +66,9 @@ describe('ConverseChatConnector', () => {
     vi.clearAllMocks()
     fake.listeners.clear()
     fake.state.lastConfiguration = undefined
+    fake.state.mode = 'connected'
+    document.body.innerHTML = ''
+    document.body.className = ''
   })
 
   it('observes connection events through a Converse v14 plugin', async () => {
@@ -105,5 +111,43 @@ describe('ConverseChatConnector', () => {
       'maer-video-call',
       'maer-screen-call',
     ])
+  })
+
+  it('hides a failed Converse session and allows a clean retry', async () => {
+    const staleRoot = document.createElement('converse-root')
+    staleRoot.id = 'conversejs'
+    document.body.append(staleRoot)
+    const connector = new ConverseChatConnector()
+    fake.state.mode = 'disconnected'
+
+    await expect(connector.connect(request)).rejects.toThrow(/connexion au serveur XMPP/i)
+
+    expect(staleRoot.hidden).toBe(true)
+    expect(staleRoot.getAttribute('aria-hidden')).toBe('true')
+    expect(document.body.classList.contains('maer-chat-connected')).toBe(false)
+    expect(fake.privateApi.user.logout).not.toHaveBeenCalled()
+
+    fake.listeners.get('connected')?.()
+    expect(document.body.classList.contains('maer-chat-connected')).toBe(false)
+
+    fake.state.mode = 'connected'
+    await expect(connector.connect(request)).resolves.toBeUndefined()
+    expect(staleRoot.hidden).toBe(false)
+    expect(staleRoot.getAttribute('aria-hidden')).toBe('false')
+    expect(document.body.classList.contains('maer-chat-connected')).toBe(true)
+
+    await connector.disconnect()
+    expect(document.body.classList.contains('maer-chat-connected')).toBe(false)
+    expect(fake.privateApi.user.logout).toHaveBeenCalledOnce()
+  })
+
+  it('stops a half-open session when Converse initialization rejects', async () => {
+    const connector = new ConverseChatConnector()
+    fake.state.mode = 'rejected'
+
+    await expect(connector.connect(request)).rejects.toThrow('initialization failed')
+
+    expect(fake.privateApi.user.logout).toHaveBeenCalledOnce()
+    expect(document.body.classList.contains('maer-chat-connected')).toBe(false)
   })
 })

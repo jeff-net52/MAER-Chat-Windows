@@ -72,6 +72,24 @@ describe('desktop IPC handlers', () => {
     expect(deps.credentials.save).not.toHaveBeenCalled()
   })
 
+  it('expands the short Edouard login to the MAER XMPP account', async () => {
+    const handlers = createDesktopHandlers(dependencies())
+
+    await expect(
+      handlers.preparePasswordLogin({
+        identifier: 'edouard',
+        password: 'Edouard123abc',
+        remember: true,
+      }),
+    ).resolves.toMatchObject({
+      jid: 'edouard@xmpp.maer.fr',
+      credential: {
+        authKind: 'password',
+        secret: 'Edouard123abc',
+      },
+    })
+  })
+
   it.each([
     'alice@xmpp.maer.fr',
     'alice/desktop',

@@ -6,14 +6,17 @@ import {
   ipcMain,
   Menu,
   nativeImage,
+  net,
   powerMonitor,
+  protocol,
   shell,
   Tray,
   type OpenDialogOptions,
   type SaveDialogOptions,
 } from 'electron'
 import { hostname } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { readFile, stat, writeFile } from 'node:fs/promises'
 import { MainPluginHost } from '../plugins/core/main/plugin-host'
 import { createFirstPartyMainPlugins } from '../plugins/main-registry'
@@ -41,12 +44,28 @@ import { PairingSessionManager } from './pairing-session-manager'
 import { installDenyByDefaultPermissionPolicy } from './permission-policy'
 import { MeetingWindowManager } from './meeting-window'
 import { resolveRendererEntry, type RendererEntry } from './runtime-resources'
+import {
+  MAER_RENDERER_SCHEME,
+  resolveRendererAssetPath,
+} from './renderer-protocol'
 import { TrustedIpcMain, TrustedRendererGuard } from './trusted-ipc'
 import { hideMainWindowOnClose, revealMainWindow } from './window-lifecycle'
 
 let mainWindow: BrowserWindow | undefined
 let tray: Tray | undefined
 let quitting = false
+
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: MAER_RENDERER_SCHEME,
+    privileges: {
+      standard: true,
+      secure: true,
+      supportFetchAPI: true,
+      corsEnabled: true,
+    },
+  },
+])
 
 const e2eUserDataDirectory = process.env.MAER_CHAT_E2E_USER_DATA_DIR
 const e2eMode = process.env.MAER_CHAT_E2E === '1' && Boolean(e2eUserDataDirectory)
@@ -66,6 +85,22 @@ function rendererEntry(): RendererEntry {
     process.env.ELECTRON_RENDERER_URL,
     join(__dirname, '../renderer/index.html'),
   )
+}
+
+function installBundledRendererProtocol(entry: RendererEntry): void {
+  if (entry.source !== 'bundled') return
+  const rendererDirectory = dirname(entry.filePath)
+  protocol.handle(MAER_RENDERER_SCHEME, (request) => {
+    if (request.method !== 'GET') {
+      return new Response(null, {
+        status: 405,
+        headers: { Allow: 'GET' },
+      })
+    }
+    const filePath = resolveRendererAssetPath(request.url, rendererDirectory)
+    if (!filePath) return new Response(null, { status: 404 })
+    return net.fetch(pathToFileURL(filePath).href)
+  })
 }
 
 function pairingManager(): PairingSessionManager {
@@ -261,11 +296,7 @@ function createWindow(entry: RendererEntry, guard: TrustedRendererGuard): Browse
     hideMainWindowOnClose(window, event, quitting)
   })
 
-  if (entry.source === 'development') {
-    void window.loadURL(entry.url)
-  } else {
-    void window.loadFile(entry.filePath)
-  }
+  void window.loadURL(entry.url)
 
   return window
 }
@@ -337,6 +368,7 @@ if (invalidNativeMessagingLaunch) {
       app.setAppUserModelId('fr.maer.chat.desktop')
       Menu.setApplicationMenu(null)
       const entry = rendererEntry()
+      installBundledRendererProtocol(entry)
       const guard = new TrustedRendererGuard({
         expectedUrl: entry.url,
         getWebContents: () => mainWindow?.webContents,

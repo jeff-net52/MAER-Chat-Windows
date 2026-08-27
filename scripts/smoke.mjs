@@ -9,6 +9,9 @@ import { _electron as electron, chromium } from 'playwright'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const root = path.resolve(here, '..')
+const expectedAppVersion = JSON.parse(
+  await readFile(path.join(root, 'package.json'), 'utf8'),
+).version
 
 function packagedExecutableArgument(args) {
   if (args.length === 0) return process.env.MAER_CHAT_EXECUTABLE
@@ -370,6 +373,23 @@ try {
   })
   page.on('pageerror', (error) => errors.push(error.message))
 
+  markPhase('renderer-origin')
+  const rendererLocation = await page.evaluate(() => ({
+    href: window.location.href,
+    origin: window.location.origin,
+    protocol: window.location.protocol,
+  }))
+  assert.deepEqual(rendererLocation, {
+    href: 'maer-chat://app/',
+    origin: 'maer-chat://app',
+    protocol: 'maer-chat:',
+  })
+  const runtimeVersion = await page.evaluate(async () => {
+    const bootstrap = await window.maerDesktop.getBootstrap()
+    return bootstrap.version
+  })
+  assert.equal(runtimeVersion, expectedAppVersion)
+
   markPhase('renderer-assets')
   const omemoWasm = await withDeadline('OMEMO WebAssembly verification', page.evaluate(async () => {
     const response = await fetch(new URL('curve25519_compiled.wasm', document.baseURI))
@@ -492,6 +512,23 @@ try {
     const message = (await connectionError.textContent()) ?? ''
     assert.doesNotMatch(message, /Cannot read properties|reading ['"]listen['"]/i)
     assert.match(message, /connexion|serveur|identifiant|authentification/i)
+    const layering = await page.evaluate(() => {
+      const submit = document.querySelector('form[data-form="credentials"] button[type="submit"]')
+      const converseRoot = document.querySelector('#conversejs')
+      if (!(submit instanceof HTMLElement)) throw new Error('Credential submit button is absent')
+      const rect = submit.getBoundingClientRect()
+      const top = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2)
+      return {
+        submitIsTopmost: top === submit || submit.contains(top),
+        converseHidden: converseRoot instanceof HTMLElement && converseRoot.hidden,
+        connectedClass: document.body.classList.contains('maer-chat-connected'),
+      }
+    })
+    assert.deepEqual(layering, {
+      submitIsTopmost: true,
+      converseHidden: true,
+      connectedClass: false,
+    })
     networkFailureHandled = true
   }
 
@@ -502,6 +539,13 @@ try {
       !(
         message.includes('violates the following Content Security Policy directive') &&
         message.includes('https://conversejs.org/media/logos/')
+      ) &&
+      !(
+        networkFailureHandled &&
+        (
+          /WebSocket connection .* failed/iu.test(message) ||
+          /Websocket (?:error|closed)/iu.test(message)
+        )
       ),
   )
   assert.deepEqual(fatalErrors, [], `renderer errors: ${fatalErrors.join(' | ')}`)
@@ -509,6 +553,8 @@ try {
   console.log(JSON.stringify({
     ok: true,
     title: await page.title(),
+    runtimeVersion,
+    rendererLocation,
     wordmarkLoaded: true,
     credentialFormAccessible: true,
     pluginPlatformReady: true,

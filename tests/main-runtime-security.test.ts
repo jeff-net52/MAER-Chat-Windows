@@ -9,10 +9,11 @@ describe('main runtime security boundaries', () => {
     const entry = resolveRendererEntry(true, 'https://attacker.invalid/', bundled)
     expect(entry).toEqual({
       source: 'bundled',
-      url: expect.stringMatching(/^file:/u),
+      url: 'maer-chat://app/',
       filePath: bundled,
     })
     expect(entry.url).not.toContain('attacker.invalid')
+    expect(entry.url).not.toMatch(/^file:/u)
   })
 
   it('uses a development renderer URL only outside packaged builds', () => {

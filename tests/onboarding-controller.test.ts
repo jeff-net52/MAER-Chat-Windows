@@ -116,6 +116,32 @@ describe('OnboardingController', () => {
     expect(root.textContent).not.toContain('secret-password')
   })
 
+  it('restores an accessible credential form after XMPP authentication fails', async () => {
+    const root = document.querySelector<HTMLElement>('#app')!
+    const bridge = makeBridge()
+    const chat: ChatConnector = {
+      connect: vi.fn(async () => Promise.reject(new Error('Identifiant ou mot de passe incorrect.'))),
+    }
+    const controller = new OnboardingController(root, bridge, chat)
+    await controller.start()
+    root.querySelector<HTMLButtonElement>('[data-action="start"]')!.click()
+    root.querySelector<HTMLButtonElement>('[data-action="password"]')!.click()
+    root.querySelector<HTMLInputElement>('[name="identifier"]')!.value = 'edouard'
+    root.querySelector<HTMLInputElement>('[name="password"]')!.value = 'wrong-password'
+
+    root.querySelector<HTMLFormElement>('[data-form="credentials"]')!.requestSubmit()
+    await flush()
+    await vi.waitFor(() => {
+      expect(root.querySelector('form[data-form="credentials"]')).not.toBeNull()
+    })
+
+    expect(root.hidden).toBe(false)
+    expect(root.querySelector<HTMLElement>('[data-role="form-error"]')?.textContent).toBe(
+      'Identifiant ou mot de passe incorrect.',
+    )
+    expect(bridge.saveValidatedCredential).not.toHaveBeenCalled()
+  })
+
   it('polls a signed QR session and connects with its revocable token', async () => {
     vi.useFakeTimers()
     const root = document.querySelector<HTMLElement>('#app')!

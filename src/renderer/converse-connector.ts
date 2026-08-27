@@ -80,7 +80,34 @@ interface ConverseHeadingButton {
 }
 
 const CONNECTION_OBSERVER_PLUGIN = 'maer-chat-connection-observer'
+const CONNECTED_BODY_CLASS = 'maer-chat-connected'
 const observers = new WeakMap<ConverseRuntime, ConverseConnectionObserver>()
+
+function setConverseUiVisible(visible: boolean): void {
+  document.body.classList.toggle(CONNECTED_BODY_CLASS, visible)
+  const root = document.querySelector<HTMLElement>('#conversejs')
+  if (!root) return
+  root.hidden = !visible
+  root.setAttribute('aria-hidden', String(!visible))
+}
+
+async function stopFailedSession(privateApi: ConversePrivateApi | undefined): Promise<void> {
+  const logout = privateApi?.user?.logout
+  if (!logout) return
+  let timeout: number | undefined
+  try {
+    await Promise.race([
+      Promise.resolve().then(() => logout()),
+      new Promise<void>((resolve) => {
+        timeout = window.setTimeout(resolve, 2_000)
+      }),
+    ])
+  } catch {
+    // The renderer is already hidden. A half-open transport must not block a retry.
+  } finally {
+    if (timeout !== undefined) window.clearTimeout(timeout)
+  }
+}
 
 function callHeadingButton(
   conversation: CallConversation,
@@ -258,12 +285,18 @@ export class ConverseChatConnector implements ChatConnector {
       throw new Error('Une session XMPP est déjà initialisée. Redémarrez MAER Chat pour changer de compte.')
     }
     this.connecting = true
+    setConverseUiVisible(false)
+    let activeObserver: ConverseConnectionObserver | undefined
+    let attemptGeneration: number | undefined
+    let transportDisconnected = false
 
     try {
       const imported = await import('converse.js')
       const converse = imported.default as unknown as ConverseRuntime
       const observer = connectionObserver(converse)
       observer.generation += 1
+      activeObserver = observer
+      attemptGeneration = observer.generation
       const built = buildConverseConfiguration(request)
       const { maer_oauth_only: oauthOnly, ...configuration } = built
       configuration.whitelisted_plugins = [CONNECTION_OBSERVER_PLUGIN]
@@ -290,6 +323,7 @@ export class ConverseChatConnector implements ChatConnector {
           window.clearTimeout(timeout)
           this.runtime = converse
           this.privateApi = observer.privateApi
+          setConverseUiVisible(true)
           installMaerDesktopShell({
             accountJid: request.jid,
             onLogout: async (options) => {
@@ -311,6 +345,7 @@ export class ConverseChatConnector implements ChatConnector {
         }
         observer.onDisconnected = (reason: unknown) => {
           if (settled) return
+          transportDisconnected = true
           settled = true
           window.clearTimeout(timeout)
           reject(userFacingConnectionError(reason))
@@ -323,12 +358,30 @@ export class ConverseChatConnector implements ChatConnector {
           reject(userFacingConnectionError(error))
         })
       })
+    } catch (error) {
+      if (
+        activeObserver &&
+        attemptGeneration !== undefined &&
+        activeObserver.generation === attemptGeneration
+      ) {
+        activeObserver.generation += 1
+      }
+      if (activeObserver) {
+        activeObserver.onConnected = undefined
+        activeObserver.onDisconnected = undefined
+      }
+      setConverseUiVisible(false)
+      if (!transportDisconnected) {
+        await stopFailedSession(activeObserver?.privateApi)
+      }
+      throw error
     } finally {
       this.connecting = false
     }
   }
 
   async disconnect(): Promise<void> {
+    setConverseUiVisible(false)
     uninstallMaerDesktopShell()
     const logout = this.privateApi?.user?.logout
     if (logout) {
