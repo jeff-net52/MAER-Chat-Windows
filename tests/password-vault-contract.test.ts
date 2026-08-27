@@ -8,32 +8,52 @@ const REQUEST_ID = '77ed591b-cb1e-4bb0-9f3d-c99e99b6ff42'
 const ENTRY_ID = 'AQIDBAUGBwgJCgsMDQ4PEA=='
 
 describe('Password Vault strict contract', () => {
-  it('accepts and normalizes a bounded HTTPS entry request', () => {
+  it('accepts and normalizes bounded add, update and search requests', () => {
     expect(
       parsePasswordVaultRequest({
         version: 1,
         requestId: REQUEST_ID.toUpperCase(),
-        action: 'upsert',
+        action: 'add',
         entry: {
-          id: ENTRY_ID,
           title: 'Compte MAER',
           username: 'alice',
           url: 'https://example.test',
-          password: { mode: 'replace', value: 'secret' },
+          password: 'secret',
         },
       }),
     ).toEqual({
       version: 1,
       requestId: REQUEST_ID,
-      action: 'upsert',
+      action: 'add',
       entry: {
-        id: ENTRY_ID,
         title: 'Compte MAER',
         username: 'alice',
         url: 'https://example.test/',
-        password: { mode: 'replace', value: 'secret' },
+        password: 'secret',
       },
     })
+    expect(
+      parsePasswordVaultRequest({
+        version: 1,
+        requestId: REQUEST_ID,
+        action: 'update',
+        entry: {
+          id: ENTRY_ID,
+          title: 'Compte MAER',
+          username: 'alice',
+          url: 'https://example.test',
+          password: { mode: 'keep' },
+        },
+      }),
+    ).toMatchObject({ action: 'update', entry: { id: ENTRY_ID } })
+    expect(
+      parsePasswordVaultRequest({
+        version: 1,
+        requestId: REQUEST_ID,
+        action: 'search',
+        query: '  maer  ',
+      }),
+    ).toMatchObject({ action: 'search', query: 'maer' })
   })
 
   it('rejects unknown, missing and legacy fields', () => {
@@ -48,6 +68,14 @@ describe('Password Vault strict contract', () => {
     expect(() =>
       parsePasswordVaultRequest({ version: 1, requestId: REQUEST_ID }),
     ).toThrow(/action/i)
+    expect(() =>
+      parsePasswordVaultRequest({
+        version: 1,
+        requestId: REQUEST_ID,
+        action: 'reveal',
+        entryId: ENTRY_ID,
+      }),
+    ).toThrow(/action/i)
   })
 
   it.each([
@@ -59,30 +87,28 @@ describe('Password Vault strict contract', () => {
       parsePasswordVaultRequest({
         version: 1,
         requestId: REQUEST_ID,
-        action: 'upsert',
+        action: 'add',
         entry: {
-          id: null,
           title: 'Compte',
           username: '',
           url,
-          password: { mode: 'replace', value: 'secret' },
+          password: 'secret',
         },
       }),
     ).toThrow(/url/i)
   })
 
-  it('requires an explicit password replacement for new values', () => {
+  it('requires non-empty bounded secrets and generator lengths', () => {
     expect(() =>
       parsePasswordVaultRequest({
         version: 1,
         requestId: REQUEST_ID,
-        action: 'upsert',
+        action: 'add',
         entry: {
-          id: null,
           title: 'Compte',
           username: 'alice',
           url: 'https://example.test',
-          password: { mode: 'replace', value: '' },
+          password: '',
         },
       }),
     ).toThrow(/mot de passe/i)
@@ -90,19 +116,27 @@ describe('Password Vault strict contract', () => {
       parsePasswordVaultRequest({
         version: 1,
         requestId: REQUEST_ID,
-        action: 'upsert',
+        action: 'generate',
+        length: 8,
+      }),
+    ).toThrow(/longueur/i)
+    expect(() =>
+      parsePasswordVaultRequest({
+        version: 1,
+        requestId: REQUEST_ID,
+        action: 'update',
         entry: {
-          id: null,
+          id: ENTRY_ID,
           title: 'Compte',
           username: 'alice',
           url: 'https://example.test',
-          password: { mode: 'keep' },
+          password: { mode: 'replace', value: '' },
         },
       }),
-    ).toThrow(/nouvelle entrée/i)
+    ).toThrow(/mot de passe/i)
   })
 
-  it('accepts summaries without a secret', () => {
+  it('accepts secret-free lists and clipboard acknowledgements', () => {
     expect(
       parsePasswordVaultResponse({
         version: 1,
@@ -120,9 +154,18 @@ describe('Password Vault strict contract', () => {
         ],
       }),
     ).toMatchObject({ ok: true, action: 'list' })
+    expect(
+      parsePasswordVaultResponse({
+        version: 1,
+        requestId: REQUEST_ID,
+        ok: true,
+        action: 'copy',
+        result: { entryId: ENTRY_ID, copied: true, clearAfterSeconds: 30 },
+      }),
+    ).toMatchObject({ ok: true, action: 'copy' })
   })
 
-  it('rejects a secret smuggled into status or list responses', () => {
+  it('rejects a secret smuggled into status, list or copy responses', () => {
     expect(() =>
       parsePasswordVaultResponse({
         version: 1,
@@ -150,6 +193,20 @@ describe('Password Vault strict contract', () => {
         ],
       }),
     ).toThrow(/champ inconnu/i)
+    expect(() =>
+      parsePasswordVaultResponse({
+        version: 1,
+        requestId: REQUEST_ID,
+        ok: true,
+        action: 'copy',
+        result: {
+          entryId: ENTRY_ID,
+          copied: true,
+          clearAfterSeconds: 30,
+          password: 'secret',
+        },
+      }),
+    ).toThrow(/champ inconnu/i)
   })
 
   it('does not expose entry counts while locked', () => {
@@ -173,11 +230,8 @@ describe('Password Vault strict contract', () => {
     ).toThrow(/verrouillage/i)
   })
 
-  it('rejects non-plain request objects', () => {
+  it('rejects non-plain request objects and malformed errors', () => {
     expect(() => parsePasswordVaultRequest(new Date())).toThrow(/objet simple/i)
-  })
-
-  it('rejects malformed error envelopes', () => {
     expect(() =>
       parsePasswordVaultResponse({
         version: 1,

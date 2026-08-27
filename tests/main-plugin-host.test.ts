@@ -4,7 +4,7 @@ import {
   type MainPluginDefinition,
   type PluginIpcScope,
 } from '../src/plugins/core/main/plugin-host'
-import { FIRST_PARTY_MAIN_PLUGINS } from '../src/plugins/main-registry'
+import { createFirstPartyMainPlugins } from '../src/plugins/main-registry'
 
 function manifest(id: string, capabilities: string[] = []) {
   return {
@@ -92,19 +92,46 @@ describe('main first-party plugin host', () => {
     expect(state.disposed).toEqual(['fr.maer.no-ipc'])
   })
 
-  it('registers the Password Vault placeholder without any secret storage', async () => {
+  it('registers the Password Vault request handler with a locked startup state', async () => {
     const state = scopes()
+    const powerListeners = new Map<string, Set<() => void>>()
+    const powerMonitor = {
+      on(event: 'lock-screen' | 'suspend', listener: () => void) {
+        const listeners = powerListeners.get(event) ?? new Set()
+        listeners.add(listener)
+        powerListeners.set(event, listeners)
+        return this
+      },
+      removeListener(event: 'lock-screen' | 'suspend', listener: () => void) {
+        powerListeners.get(event)?.delete(listener)
+        return this
+      },
+    }
     const host = new MainPluginHost({
       appVersion: '1.1.0',
-      plugins: FIRST_PARTY_MAIN_PLUGINS,
+      plugins: createFirstPartyMainPlugins({
+        passwordVault: {
+          vaultPath: 'C:\\safe-test-directory\\maer-passwords.kdbx',
+          powerMonitor,
+          clipboard: { writeText() {}, readText: () => '', clear() {} },
+        },
+      }),
       createIpcScope: (id) => state.create(id),
     })
 
     const report = await host.activateAll()
-    const status = state.handlers.get('fr.maer.password-vault')?.get('status')
+    const request = state.handlers.get('fr.maer.password-vault')?.get('request')
 
     expect(report.active).toEqual(['fr.maer.password-vault'])
-    expect(status?.()).toEqual({ version: 1, state: 'placeholder' })
+    await expect(request?.({
+      version: 1,
+      requestId: '77ed591b-cb1e-4bb0-9f3d-c99e99b6ff42',
+      action: 'status',
+    })).resolves.toMatchObject({
+      ok: true,
+      action: 'status',
+      result: { state: 'locked', entryCount: null },
+    })
     await host.deactivateAll()
     expect(state.disposed).toEqual(['fr.maer.password-vault'])
   })

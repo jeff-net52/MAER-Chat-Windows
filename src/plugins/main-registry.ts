@@ -1,6 +1,15 @@
 import type { MainPluginDefinition } from './core/main/plugin-host'
-import { passwordVaultMainPlugin } from './password-vault/main/plugin'
+import {
+  createPasswordVaultMainPlugin,
+  type PasswordVaultMainPluginOptions,
+} from './password-vault/main/plugin'
 
-export const FIRST_PARTY_MAIN_PLUGINS: readonly MainPluginDefinition[] = Object.freeze([
-  passwordVaultMainPlugin,
-])
+export interface FirstPartyMainPluginOptions {
+  passwordVault: PasswordVaultMainPluginOptions
+}
+
+export function createFirstPartyMainPlugins(
+  options: FirstPartyMainPluginOptions,
+): readonly MainPluginDefinition[] {
+  return Object.freeze([createPasswordVaultMainPlugin(options.passwordVault)])
+}

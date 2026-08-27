@@ -52,5 +52,5 @@ const bridge: DesktopBridge = {
 contextBridge.exposeInMainWorld('maerDesktop', Object.freeze(bridge))
 contextBridge.exposeInMainWorld(
   'maerPlugins',
-  createDesktopPluginBridge((channel) => ipcRenderer.invoke(channel)),
+  createDesktopPluginBridge((channel, request) => ipcRenderer.invoke(channel, request)),
 )

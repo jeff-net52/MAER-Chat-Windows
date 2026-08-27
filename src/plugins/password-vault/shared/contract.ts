@@ -6,9 +6,12 @@ export const PASSWORD_VAULT_ACTIONS = [
   'unlock',
   'lock',
   'list',
-  'reveal',
-  'upsert',
+  'search',
+  'add',
+  'update',
   'delete',
+  'generate',
+  'copy',
 ] as const
 
 export type PasswordVaultAction = (typeof PASSWORD_VAULT_ACTIONS)[number]
@@ -26,7 +29,6 @@ export type PasswordVaultErrorCode =
   | 'recovery-required'
   | 'storage-unavailable'
   | 'corrupt-vault'
-  | 'busy'
   | 'internal'
 
 export interface PasswordVaultStatus {
@@ -42,12 +44,19 @@ export interface PasswordVaultEntrySummary {
   updatedAt: string
 }
 
+export interface PasswordVaultNewEntry {
+  title: string
+  username: string
+  url: string
+  password: string
+}
+
 export type PasswordVaultPasswordUpdate =
   | { mode: 'keep' }
   | { mode: 'replace'; value: string }
 
-export interface PasswordVaultEntryInput {
-  id: string | null
+export interface PasswordVaultEntryUpdate {
+  id: string
   title: string
   username: string
   url: string
@@ -65,26 +74,55 @@ export type PasswordVaultRequest =
       action: 'status' | 'initialize' | 'unlock' | 'lock' | 'list'
     })
   | (PasswordVaultRequestBase & {
-      action: 'reveal' | 'delete'
+      action: 'search'
+      query: string
+    })
+  | (PasswordVaultRequestBase & {
+      action: 'add'
+      entry: PasswordVaultNewEntry
+    })
+  | (PasswordVaultRequestBase & {
+      action: 'update'
+      entry: PasswordVaultEntryUpdate
+    })
+  | (PasswordVaultRequestBase & {
+      action: 'delete' | 'copy'
       entryId: string
     })
   | (PasswordVaultRequestBase & {
-      action: 'upsert'
-      entry: PasswordVaultEntryInput
+      action: 'generate'
+      length: number
     })
+
+export interface PasswordVaultDeleteResult {
+  entryId: string
+  deleted: true
+}
+
+export interface PasswordVaultGeneratedPassword {
+  password: string
+}
+
+export interface PasswordVaultCopyResult {
+  entryId: string
+  copied: true
+  clearAfterSeconds: number
+}
+
+export type PasswordVaultSuccessResult =
+  | PasswordVaultStatus
+  | PasswordVaultEntrySummary
+  | readonly PasswordVaultEntrySummary[]
+  | PasswordVaultDeleteResult
+  | PasswordVaultGeneratedPassword
+  | PasswordVaultCopyResult
 
 export interface PasswordVaultSuccessResponse {
   version: typeof PASSWORD_VAULT_PROTOCOL_VERSION
   requestId: string
   ok: true
   action: PasswordVaultAction
-  result: PasswordVaultStatus | PasswordVaultEntrySummary | readonly PasswordVaultEntrySummary[] | {
-    entryId: string
-    password: string
-  } | {
-    entryId: string
-    deleted: true
-  }
+  result: PasswordVaultSuccessResult
 }
 
 export interface PasswordVaultFailureResponse {
@@ -100,6 +138,10 @@ export interface PasswordVaultFailureResponse {
 export type PasswordVaultResponse =
   | PasswordVaultSuccessResponse
   | PasswordVaultFailureResponse
+
+export const PASSWORD_VAULT_MIN_GENERATED_LENGTH = 12
+export const PASSWORD_VAULT_MAX_GENERATED_LENGTH = 128
+export const PASSWORD_VAULT_CLIPBOARD_CLEAR_SECONDS = 30
 
 const REQUEST_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu
 const KDBX_ENTRY_ID = /^[A-Za-z0-9+/]{22}==$/u
@@ -117,7 +159,6 @@ const ERROR_CODES = new Set<unknown>([
   'recovery-required',
   'storage-unavailable',
   'corrupt-vault',
-  'busy',
   'internal',
 ])
 const ACTIONS = new Set<unknown>(PASSWORD_VAULT_ACTIONS)
@@ -197,6 +238,10 @@ function httpsUrl(value: unknown): string {
   return url.href
 }
 
+function password(value: unknown): string {
+  return boundedString(value, 'Le mot de passe', 4096)
+}
+
 function isoDate(value: unknown): string {
   const parsed = boundedString(value, 'La date de modification', 40)
   const date = new Date(parsed)
@@ -204,6 +249,28 @@ function isoDate(value: unknown): string {
     throw new Error('La date de modification est invalide.')
   }
   return parsed
+}
+
+function generatedLength(value: unknown): number {
+  if (
+    !Number.isSafeInteger(value) ||
+    (value as number) < PASSWORD_VAULT_MIN_GENERATED_LENGTH ||
+    (value as number) > PASSWORD_VAULT_MAX_GENERATED_LENGTH
+  ) {
+    throw new Error('La longueur du mot de passe généré est invalide.')
+  }
+  return value as number
+}
+
+function parseNewEntry(value: unknown): PasswordVaultNewEntry {
+  const input = record(value, "L’entrée du coffre")
+  exactKeys(input, ['title', 'username', 'url', 'password'], "L’entrée du coffre")
+  return Object.freeze({
+    title: title(input.title),
+    username: username(input.username),
+    url: httpsUrl(input.url),
+    password: password(input.password),
+  })
 }
 
 function parsePasswordUpdate(value: unknown): PasswordVaultPasswordUpdate {
@@ -214,28 +281,20 @@ function parsePasswordUpdate(value: unknown): PasswordVaultPasswordUpdate {
   }
   if (input.mode === 'replace') {
     exactKeys(input, ['mode', 'value'], 'La mise à jour du mot de passe')
-    return Object.freeze({
-      mode: 'replace',
-      value: boundedString(input.value, 'Le mot de passe', 4096),
-    })
+    return Object.freeze({ mode: 'replace', value: password(input.value) })
   }
   throw new Error('Le mode de mise à jour du mot de passe est invalide.')
 }
 
-function parseEntryInput(value: unknown): PasswordVaultEntryInput {
-  const input = record(value, "L’entrée du coffre")
-  exactKeys(input, ['id', 'title', 'username', 'url', 'password'], "L’entrée du coffre")
-  const parsedId = input.id === null ? null : entryId(input.id)
-  const password = parsePasswordUpdate(input.password)
-  if (parsedId === null && password.mode !== 'replace') {
-    throw new Error('Une nouvelle entrée doit contenir un mot de passe.')
-  }
+function parseEntryUpdate(value: unknown): PasswordVaultEntryUpdate {
+  const input = record(value, "La mise à jour de l’entrée")
+  exactKeys(input, ['id', 'title', 'username', 'url', 'password'], "La mise à jour de l’entrée")
   return Object.freeze({
-    id: parsedId,
+    id: entryId(input.id),
     title: title(input.title),
     username: username(input.username),
     url: httpsUrl(input.url),
-    password,
+    password: parsePasswordUpdate(input.password),
   })
 }
 
@@ -245,7 +304,9 @@ function parseStatus(value: unknown): PasswordVaultStatus {
   if (!VAULT_STATES.has(input.state)) throw new Error('Le statut du coffre est invalide.')
   if (
     input.entryCount !== null &&
-    (!Number.isSafeInteger(input.entryCount) || (input.entryCount as number) < 0 || (input.entryCount as number) > 10_000)
+    (!Number.isSafeInteger(input.entryCount) ||
+      (input.entryCount as number) < 0 ||
+      (input.entryCount as number) > 10_000)
   ) {
     throw new Error("Le nombre d’entrées du coffre est invalide.")
   }
@@ -273,6 +334,13 @@ function parseEntrySummary(value: unknown): PasswordVaultEntrySummary {
   })
 }
 
+function parseSummaryList(value: unknown): readonly PasswordVaultEntrySummary[] {
+  if (!Array.isArray(value) || value.length > 10_000) {
+    throw new Error("La liste d’entrées du coffre est invalide.")
+  }
+  return Object.freeze(value.map(parseEntrySummary))
+}
+
 export function parsePasswordVaultRequest(value: unknown): PasswordVaultRequest {
   const input = record(value, 'La requête du coffre')
   if (input.version !== PASSWORD_VAULT_PROTOCOL_VERSION) {
@@ -292,13 +360,26 @@ export function parsePasswordVaultRequest(value: unknown): PasswordVaultRequest 
     case 'list':
       exactKeys(input, ['version', 'requestId', 'action'], 'La requête du coffre')
       return Object.freeze({ ...base, action: input.action })
-    case 'reveal':
+    case 'search':
+      exactKeys(input, ['version', 'requestId', 'action', 'query'], 'La requête du coffre')
+      return Object.freeze({
+        ...base,
+        action: 'search',
+        query: boundedString(input.query, 'La recherche', 320, true).trim(),
+      })
+    case 'add':
+      exactKeys(input, ['version', 'requestId', 'action', 'entry'], 'La requête du coffre')
+      return Object.freeze({ ...base, action: 'add', entry: parseNewEntry(input.entry) })
+    case 'update':
+      exactKeys(input, ['version', 'requestId', 'action', 'entry'], 'La requête du coffre')
+      return Object.freeze({ ...base, action: 'update', entry: parseEntryUpdate(input.entry) })
     case 'delete':
+    case 'copy':
       exactKeys(input, ['version', 'requestId', 'action', 'entryId'], 'La requête du coffre')
       return Object.freeze({ ...base, action: input.action, entryId: entryId(input.entryId) })
-    case 'upsert':
-      exactKeys(input, ['version', 'requestId', 'action', 'entry'], 'La requête du coffre')
-      return Object.freeze({ ...base, action: 'upsert', entry: parseEntryInput(input.entry) })
+    case 'generate':
+      exactKeys(input, ['version', 'requestId', 'action', 'length'], 'La requête du coffre')
+      return Object.freeze({ ...base, action: 'generate', length: generatedLength(input.length) })
     default:
       throw new Error("L’action du coffre est invalide.")
   }
@@ -330,7 +411,7 @@ export function parsePasswordVaultResponse(value: unknown): PasswordVaultRespons
   }
   exactKeys(input, ['version', 'requestId', 'ok', 'action', 'result'], 'La réponse du coffre')
 
-  let result: PasswordVaultSuccessResponse['result']
+  let result: PasswordVaultSuccessResult
   switch (input.action) {
     case 'status':
     case 'initialize':
@@ -338,30 +419,48 @@ export function parsePasswordVaultResponse(value: unknown): PasswordVaultRespons
     case 'lock':
       result = parseStatus(input.result)
       break
-    case 'list': {
-      if (!Array.isArray(input.result) || input.result.length > 10_000) {
-        throw new Error("La liste d’entrées du coffre est invalide.")
-      }
-      result = Object.freeze(input.result.map(parseEntrySummary))
+    case 'list':
+    case 'search':
+      result = parseSummaryList(input.result)
       break
-    }
-    case 'upsert':
+    case 'add':
+    case 'update':
       result = parseEntrySummary(input.result)
       break
-    case 'reveal': {
-      const reveal = record(input.result, 'La révélation du mot de passe')
-      exactKeys(reveal, ['entryId', 'password'], 'La révélation du mot de passe')
-      result = Object.freeze({
-        entryId: entryId(reveal.entryId),
-        password: boundedString(reveal.password, 'Le mot de passe révélé', 4096),
-      })
-      break
-    }
     case 'delete': {
       const deletion = record(input.result, 'La suppression du coffre')
       exactKeys(deletion, ['entryId', 'deleted'], 'La suppression du coffre')
       if (deletion.deleted !== true) throw new Error('La suppression du coffre est invalide.')
       result = Object.freeze({ entryId: entryId(deletion.entryId), deleted: true as const })
+      break
+    }
+    case 'generate': {
+      const generated = record(input.result, 'Le mot de passe généré')
+      exactKeys(generated, ['password'], 'Le mot de passe généré')
+      const parsedPassword = password(generated.password)
+      if (
+        parsedPassword.length < PASSWORD_VAULT_MIN_GENERATED_LENGTH ||
+        parsedPassword.length > PASSWORD_VAULT_MAX_GENERATED_LENGTH
+      ) {
+        throw new Error('Le mot de passe généré est invalide.')
+      }
+      result = Object.freeze({ password: parsedPassword })
+      break
+    }
+    case 'copy': {
+      const copied = record(input.result, 'La copie du mot de passe')
+      exactKeys(copied, ['entryId', 'copied', 'clearAfterSeconds'], 'La copie du mot de passe')
+      if (
+        copied.copied !== true ||
+        copied.clearAfterSeconds !== PASSWORD_VAULT_CLIPBOARD_CLEAR_SECONDS
+      ) {
+        throw new Error('La copie du mot de passe est invalide.')
+      }
+      result = Object.freeze({
+        entryId: entryId(copied.entryId),
+        copied: true as const,
+        clearAfterSeconds: PASSWORD_VAULT_CLIPBOARD_CLEAR_SECONDS,
+      })
       break
     }
     default:

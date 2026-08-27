@@ -1,5 +1,6 @@
 import type { RendererPluginDefinition } from './core/renderer/plugin-registry'
+import { passwordVaultRendererPlugin } from './password-vault/renderer/plugin'
 
-// Password Vault intentionally has no renderer contribution until its security and UX
-// choices are approved. First-party renderer plugins must be imported statically here.
-export const FIRST_PARTY_RENDERER_PLUGINS: readonly RendererPluginDefinition[] = Object.freeze([])
+export const FIRST_PARTY_RENDERER_PLUGINS: readonly RendererPluginDefinition[] = Object.freeze([
+  passwordVaultRendererPlugin,
+])

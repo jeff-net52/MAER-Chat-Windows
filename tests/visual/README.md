@@ -7,6 +7,11 @@ Le test valide la structure, les trois boutons d'appel, l'absence de contributio
 plugin et les couleurs MAER. Chaque PNG est ensuite comparé à sa baseline avec
 `pngjs`, déjà verrouillé via `qrcode` : aucune dépendance n'est ajoutée.
 
+Une cinquième capture hors baseline ouvre ensuite la contribution coffre-fort
+avec un bridge borné simulé. Elle vérifie le bouton rail, le panneau Firefox-like,
+l'absence de champ secret persistant et l'absence de stockage navigateur, sans
+modifier les quatre références WhatsApp.
+
 Un pixel est modifié si l'écart d'un canal RGBA dépasse 16/255. Le seuil autorise
 au plus 0,5 % de pixels modifiés et un delta moyen normalisé de 0,1 %. Cela absorbe
 une petite variation de rastérisation, mais bloque une modification significative

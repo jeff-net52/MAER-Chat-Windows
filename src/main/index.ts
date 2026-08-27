@@ -1,9 +1,11 @@
 import {
   app,
   BrowserWindow,
+  clipboard,
   ipcMain,
   Menu,
   nativeImage,
+  powerMonitor,
   shell,
   Tray,
 } from 'electron'
@@ -11,7 +13,7 @@ import { hostname } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { MainPluginHost } from '../plugins/core/main/plugin-host'
-import { FIRST_PARTY_MAIN_PLUGINS } from '../plugins/main-registry'
+import { createFirstPartyMainPlugins } from '../plugins/main-registry'
 import { createApprovalUri } from '../shared/pairing-protocol'
 import { IPC } from '../shared/ipc-channels'
 import {
@@ -99,7 +101,13 @@ function registerIpc(guard: TrustedRendererGuard): MainServices {
 
   const plugins = new MainPluginHost({
     appVersion: app.getVersion(),
-    plugins: FIRST_PARTY_MAIN_PLUGINS,
+    plugins: createFirstPartyMainPlugins({
+      passwordVault: {
+        vaultPath: join(app.getPath('userData'), 'maer-passwords.kdbx'),
+        powerMonitor,
+        clipboard,
+      },
+    }),
     createIpcScope: (pluginId) => ipc.createPluginScope(pluginId),
     onFailure: (failure) => {
       console.error(`[plugin:${failure.pluginId}] ${failure.phase}`)

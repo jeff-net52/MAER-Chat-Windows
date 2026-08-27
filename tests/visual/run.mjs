@@ -101,7 +101,10 @@ try {
     page.on('console', (message) => { if (message.type() === 'error') browserErrors.push(message.text()) })
     page.on('pageerror', (error) => browserErrors.push(error.message))
     await page.goto(url, { waitUntil: 'networkidle' })
-    await page.evaluate((theme) => { document.documentElement.dataset.maerTheme = theme }, scenario.theme)
+    await page.evaluate((theme) => {
+      document.documentElement.classList.add('maer-visual-test')
+      document.documentElement.dataset.maerTheme = theme
+    }, scenario.theme)
     await page.waitForSelector('#maer-conversation-sidebar')
     const geometry = await page.evaluate(() => {
       const box = (selector) => {
@@ -145,7 +148,42 @@ try {
     results.push({ ...scenario, output, geometry, comparison })
     await page.close()
   }
-  process.stdout.write(`${JSON.stringify({ ok: true, updateBaselines, results })}\n`)
+  const vaultPage = await browser.newPage({ viewport: { width: 920, height: 900 }, deviceScaleFactor: 1 })
+  const vaultErrors = []
+  vaultPage.on('console', (message) => { if (message.type() === 'error') vaultErrors.push(message.text()) })
+  vaultPage.on('pageerror', (error) => vaultErrors.push(error.message))
+  await vaultPage.goto(`${url}?plugin=vault`, { waitUntil: 'networkidle' })
+  await vaultPage.evaluate(() => {
+    document.documentElement.classList.add('maer-visual-test')
+    document.documentElement.dataset.maerTheme = 'dark'
+  })
+  await vaultPage.waitForSelector('.maer-password-vault .maer-vault-entry')
+  const vaultGeometry = await vaultPage.evaluate(() => ({
+    pluginButtons: document.querySelectorAll('[data-maer-plugin-key]').length,
+    panelVisible: !document.querySelector('#maer-side-panel')?.hasAttribute('hidden'),
+    title: document.querySelector('[data-maer-panel-title]')?.textContent,
+    entryTitle: document.querySelector('.maer-vault-entry strong')?.textContent,
+    passwordFields: document.querySelectorAll('input[type="password"]').length,
+    localStorageKeys: localStorage.length,
+  }))
+  assert.deepEqual(vaultGeometry, {
+    pluginButtons: 1,
+    panelVisible: true,
+    title: 'Mots de passe',
+    entryTitle: 'Compte MAER',
+    passwordFields: 0,
+    localStorageKeys: 0,
+  })
+  assert.deepEqual(vaultErrors, [], `Erreurs du panneau coffre : ${vaultErrors.join(' | ')}`)
+  const vaultOutput = path.join(outputRoot, 'password-vault-dark-920.png')
+  await vaultPage.screenshot({ path: vaultOutput, fullPage: true })
+  await vaultPage.close()
+  process.stdout.write(`${JSON.stringify({
+    ok: true,
+    updateBaselines,
+    results,
+    vaultPreview: { output: vaultOutput, geometry: vaultGeometry },
+  })}\n`)
 } finally {
   await browser?.close()
   await stopServer(vite)
