@@ -28,6 +28,7 @@ import {
   MAER_XMPP_SERVICE_HOST,
 } from '../shared/service-config'
 import { CredentialStore, WindowsCredentialBackend } from './credential-store'
+import { createBrowserExtensionResourceOpener } from './browser-extension-resources'
 import { CoordinatedShutdown } from './coordinated-shutdown'
 import { createDesktopHandlers } from './ipc-handlers'
 import { PairingApiClient } from './pairing-api'
@@ -99,6 +100,16 @@ function registerIpc(guard: TrustedRendererGuard): MainServices {
     credentials: new CredentialStore(new WindowsCredentialBackend()),
     pairing,
   })
+  const browserExtensions = createBrowserExtensionResourceOpener({
+    isPackaged: app.isPackaged,
+    resourcesPath: process.resourcesPath,
+    mainDirectory: __dirname,
+    openPath: (target) =>
+      e2eMode ? Promise.resolve('') : shell.openPath(target),
+    revealPath: (target) => {
+      if (!e2eMode) shell.showItemInFolder(target)
+    },
+  })
 
   ipc.handle(IPC.bootstrap, () => handlers.bootstrap())
   ipc.handle(IPC.preparePasswordLogin, (input: unknown) => handlers.preparePasswordLogin(input))
@@ -118,6 +129,7 @@ function registerIpc(guard: TrustedRendererGuard): MainServices {
         vaultPath: join(app.getPath('userData'), 'maer-passwords.kdbx'),
         powerMonitor,
         clipboard,
+        browserExtensions,
         publishNativeGateway: (gateway) => {
           nativeVaultGateway = gateway
         },

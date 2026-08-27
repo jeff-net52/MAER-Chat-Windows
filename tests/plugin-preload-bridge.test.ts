@@ -25,6 +25,8 @@ function response(request: { requestId: string; action: string }) {
     delete: { entryId: ENTRY_ID, deleted: true },
     generate: { password: 'SafeGenerated-2345' },
     copy: { entryId: ENTRY_ID, copied: true, clearAfterSeconds: 30 },
+    'open-extension-folder': { target: 'folder', opened: true },
+    'open-extension-guide': { target: 'guide', opened: true },
   }
   return {
     version: 1,
@@ -63,6 +65,8 @@ describe('explicit preload plugin bridge', () => {
       'delete',
       'generate',
       'copy',
+      'openExtensionFolder',
+      'openExtensionGuide',
     ])
     expect(deterministic.passwordVault).toBeDefined()
 
@@ -86,10 +90,23 @@ describe('explicit preload plugin bridge', () => {
     await expect(vault.copy(ENTRY_ID)).resolves.toEqual({
       entryId: ENTRY_ID, copied: true, clearAfterSeconds: 30,
     })
+    await expect(vault.openExtensionFolder()).resolves.toEqual({
+      target: 'folder', opened: true,
+    })
+    await expect(vault.openExtensionGuide()).resolves.toEqual({
+      target: 'guide', opened: true,
+    })
 
     expect(invoke).toHaveBeenCalled()
     expect(invoke.mock.calls.every(([channel]) =>
       channel === 'maer:plugin:fr.maer.password-vault:request')).toBe(true)
+    const extensionRequests = invoke.mock.calls
+      .map(([, value]) => value as Record<string, unknown>)
+      .filter(({ action }) =>
+        action === 'open-extension-folder' || action === 'open-extension-guide')
+    expect(extensionRequests).toHaveLength(2)
+    expect(extensionRequests.every((value) =>
+      Object.keys(value).sort().join(',') === 'action,requestId,version')).toBe(true)
     expect(createId()).toBe(REQUEST_ID)
   })
 

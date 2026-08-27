@@ -136,11 +136,30 @@ export interface PasswordVaultOperations {
   dispose(): Promise<void>
 }
 
+export interface PasswordVaultBrowserExtensionResources {
+  openFolder(): Promise<void>
+  openGuide(): Promise<void>
+}
+
+const unavailableBrowserExtensionResources: PasswordVaultBrowserExtensionResources =
+  Object.freeze({
+    async openFolder() {
+      throw new Error('Browser extension resources unavailable')
+    },
+    async openGuide() {
+      throw new Error('Browser extension resources unavailable')
+    },
+  })
+
 export class PasswordVaultController {
   private tail: Promise<void> = Promise.resolve()
   private disposed = false
 
-  constructor(private readonly operations: PasswordVaultOperations) {}
+  constructor(
+    private readonly operations: PasswordVaultOperations,
+    private readonly browserExtensions: PasswordVaultBrowserExtensionResources =
+      unavailableBrowserExtensionResources,
+  ) {}
 
   handle(value: unknown): Promise<PasswordVaultResponse> {
     let request: PasswordVaultRequest
@@ -204,6 +223,12 @@ export class PasswordVaultController {
         return success(request, { password: await this.operations.generate(request.length) })
       case 'copy':
         return success(request, await this.operations.copy(request.entryId))
+      case 'open-extension-folder':
+        await this.browserExtensions.openFolder()
+        return success(request, { target: 'folder', opened: true })
+      case 'open-extension-guide':
+        await this.browserExtensions.openGuide()
+        return success(request, { target: 'guide', opened: true })
     }
   }
 }
@@ -515,6 +540,7 @@ export function createPasswordVaultController(
 }
 
 export interface PasswordVaultMainPluginOptions extends PasswordVaultControllerOptions {
+  browserExtensions: PasswordVaultBrowserExtensionResources
   publishNativeGateway?(gateway: NativeVaultGateway | undefined): void
 }
 
@@ -530,7 +556,7 @@ export function createPasswordVaultMainPlugin(
         options.clipboard,
         options.randomIndex,
       )
-      const controller = new PasswordVaultController(operations)
+      const controller = new PasswordVaultController(operations, options.browserExtensions)
       const gateway = new LocalNativeVaultGateway(operations)
       context.ipc.handle('request', (value: unknown) => controller.handle(value))
       try {

@@ -76,6 +76,50 @@ describe('Password Vault strict contract', () => {
         entryId: ENTRY_ID,
       }),
     ).toThrow(/action/i)
+    expect(() =>
+      parsePasswordVaultRequest({
+        version: 1,
+        requestId: REQUEST_ID,
+        action: 'open-extension-folder',
+        path: 'C:\\Windows',
+      }),
+    ).toThrow(/champ inconnu/i)
+  })
+
+  it('accepts only path-free browser-extension actions and correlated acknowledgements', () => {
+    expect(
+      parsePasswordVaultRequest({
+        version: 1,
+        requestId: REQUEST_ID,
+        action: 'open-extension-folder',
+      }),
+    ).toEqual({
+      version: 1,
+      requestId: REQUEST_ID,
+      action: 'open-extension-folder',
+    })
+    expect(
+      parsePasswordVaultResponse({
+        version: 1,
+        requestId: REQUEST_ID,
+        ok: true,
+        action: 'open-extension-guide',
+        result: { target: 'guide', opened: true },
+      }),
+    ).toMatchObject({
+      ok: true,
+      action: 'open-extension-guide',
+      result: { target: 'guide', opened: true },
+    })
+    expect(() =>
+      parsePasswordVaultResponse({
+        version: 1,
+        requestId: REQUEST_ID,
+        ok: true,
+        action: 'open-extension-guide',
+        result: { target: 'folder', opened: true },
+      }),
+    ).toThrow(/invalide/i)
   })
 
   it.each([

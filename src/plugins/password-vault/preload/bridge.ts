@@ -5,6 +5,7 @@ import {
   parsePasswordVaultRequest,
   parsePasswordVaultResponse,
   type PasswordVaultAction,
+  type PasswordVaultBrowserExtensionOpenResult,
   type PasswordVaultCopyResult,
   type PasswordVaultDeleteResult,
   type PasswordVaultEntrySummary,
@@ -39,6 +40,8 @@ export interface PasswordVaultBridge {
   delete(entryId: string): Promise<PasswordVaultDeleteResult>
   generate(length?: number): Promise<string>
   copy(entryId: string): Promise<PasswordVaultCopyResult>
+  openExtensionFolder(): Promise<PasswordVaultBrowserExtensionOpenResult>
+  openExtensionGuide(): Promise<PasswordVaultBrowserExtensionOpenResult>
 }
 
 export type PluginIpcInvoker = (channel: string, request: unknown) => Promise<unknown>
@@ -77,7 +80,16 @@ export function createPasswordVaultBridge(
     return response
   }
 
-  function simple(action: 'status' | 'initialize' | 'unlock' | 'lock' | 'list'): PasswordVaultRequest {
+  function simple(
+    action:
+      | 'status'
+      | 'initialize'
+      | 'unlock'
+      | 'lock'
+      | 'list'
+      | 'open-extension-folder'
+      | 'open-extension-guide',
+  ): PasswordVaultRequest {
     return parsePasswordVaultRequest(base(action, createRequestId()))
   }
 
@@ -136,6 +148,14 @@ export function createPasswordVaultBridge(
         entryId,
       })
       return (await request(value)).result as PasswordVaultCopyResult
+    },
+    async openExtensionFolder() {
+      return (await request(simple('open-extension-folder')))
+        .result as PasswordVaultBrowserExtensionOpenResult
+    },
+    async openExtensionGuide() {
+      return (await request(simple('open-extension-guide')))
+        .result as PasswordVaultBrowserExtensionOpenResult
     },
   })
 }

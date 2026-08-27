@@ -11,6 +11,7 @@
   "license": "GPL-3.0-or-later",
   "scripts": {
     "dev": "electron-vite dev",
+    "build:browser-extensions": "npm --prefix browser-extensions/maer-password-vault run build",
     "build:native-host": "node scripts/build-native-host-shim.mjs",
     "test": "vitest run",
     "test:e2e": "node scripts/smoke.mjs",
@@ -22,7 +23,7 @@
     "verify:licenses:packaged": "node scripts/verify-packaged-licenses.mjs",
     "verify:fuses:packaged": "node scripts/verify-electron-fuses.mjs",
     "typecheck": "tsc --noEmit",
-    "build": "npm run typecheck && npm run test && npm run verify:licenses && electron-vite build && node scripts/verify-renderer-assets.mjs",
+    "build": "npm run build:browser-extensions && npm run typecheck && npm run test && npm run verify:licenses && electron-vite build && node scripts/verify-renderer-assets.mjs",
     "dist": "npm run build && electron-builder --win nsis",
     "dist:dir": "npm run build && electron-builder --win --dir"
   },
@@ -73,6 +74,18 @@
           "maer-password-vault-host.exe",
           "host-shim/*.cs"
         ]
+      },
+      {
+        "from": "browser-extensions/maer-password-vault/dist",
+        "to": "browser-extensions/maer-password-vault/dist",
+        "filter": [
+          "chromium/**/*",
+          "firefox/**/*"
+        ]
+      },
+      {
+        "from": "browser-extensions/maer-password-vault/docs/installation.md",
+        "to": "browser-extensions/maer-password-vault/installation.md"
       },
       {
         "from": "assets/icon.png",

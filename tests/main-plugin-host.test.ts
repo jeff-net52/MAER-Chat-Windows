@@ -114,6 +114,10 @@ describe('main first-party plugin host', () => {
           vaultPath: 'C:\\safe-test-directory\\maer-passwords.kdbx',
           powerMonitor,
           clipboard: { writeText() {}, readText: () => '', clear() {} },
+          browserExtensions: {
+            async openFolder() {},
+            async openGuide() {},
+          },
         },
       }),
       createIpcScope: (id) => state.create(id),
