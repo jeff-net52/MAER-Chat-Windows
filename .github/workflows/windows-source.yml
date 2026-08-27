@@ -31,6 +31,18 @@ jobs:
           node-version: 22.23.2
           cache: npm
 
+      - name: Configure a canonical temporary directory
+        shell: pwsh
+        run: |
+          $temporaryDirectory = Join-Path $env:GITHUB_WORKSPACE '.ci-temp'
+          New-Item -ItemType Directory -Path $temporaryDirectory -Force | Out-Null
+          $canonicalDirectory = node -e "process.stdout.write(require('node:fs').realpathSync.native(process.argv[1]))" $temporaryDirectory
+          if (-not $canonicalDirectory) {
+            throw 'Unable to resolve the canonical CI temporary directory.'
+          }
+          Add-Content -LiteralPath $env:GITHUB_ENV -Value "TEMP=$canonicalDirectory" -Encoding utf8
+          Add-Content -LiteralPath $env:GITHUB_ENV -Value "TMP=$canonicalDirectory" -Encoding utf8
+
       - name: Install locked dependencies
         run: npm ci
 
@@ -73,7 +85,10 @@ jobs:
       - name: Reject active references to the retired domain
         shell: pwsh
         run: |
-          $matches = git grep -n -i -E 'contacts\.chaumont\.me|chaumont\.me' -- .
+          $dot = [char]46
+          $retiredHost = 'contacts' + $dot + 'chaumont' + $dot + 'me'
+          $retiredDomain = 'chaumont' + $dot + 'me'
+          $matches = git grep -n -i -F -e $retiredHost -e $retiredDomain -- .
           if ($LASTEXITCODE -eq 0) {
             $matches
             throw 'Une reference active au domaine retire a ete detectee.'
@@ -81,3 +96,4 @@ jobs:
           if ($LASTEXITCODE -ne 1) {
             throw 'La verification du domaine retire a echoue.'
           }
+          exit 0
