@@ -34,7 +34,9 @@ import {
   MAER_SERVICE_ENDPOINTS,
   MAER_XMPP_SERVICE_HOST,
 } from '../shared/service-config'
-import { CredentialStore, WindowsCredentialBackend } from './credential-store'
+import {
+  createRuntimeCredentialStore,
+} from './credential-store'
 import { createBrowserExtensionResourceOpener } from './browser-extension-resources'
 import { CoordinatedShutdown } from './coordinated-shutdown'
 import { createDesktopHandlers } from './ipc-handlers'
@@ -142,7 +144,7 @@ function registerIpc(
     appVersion: app.getVersion(),
     deviceName: hostname().slice(0, 80) || 'PC Windows',
     endpoints: MAER_SERVICE_ENDPOINTS,
-    credentials: new CredentialStore(new WindowsCredentialBackend()),
+    credentials: createRuntimeCredentialStore(e2eMode),
     pairing,
   })
   const browserExtensions = createBrowserExtensionResourceOpener({

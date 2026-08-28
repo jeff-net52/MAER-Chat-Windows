@@ -89,9 +89,9 @@ elle ne remplace pas une capture du binaire authentifié.
 npm run dist
 ```
 
-L’installateur NSIS x64 est généré sous `dist/`. La candidate locale 1.3.1 a
-été construite et validée à partir des sources actuelles ; voir
-`docs/RELEASE_REPORT_1.3.1.md`. Elle n'est pas une release publique signée :
+L’installateur NSIS x64 est généré sous `dist/`. La candidate locale 1.3.2 a
+été construite et validée à partir des sources actuelles ; voir
+`docs/RELEASE_REPORT_1.3.2.md`. Elle n'est pas une release publique signée :
 les conditions restantes sont détaillées dans `docs/RELEASE_POLICY.md`.
 
 ## Sécurité

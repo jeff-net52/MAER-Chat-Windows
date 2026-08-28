@@ -12,7 +12,7 @@ blocages ci-dessous ne sont pas levés.
 2. **Logo bloquant** : l'auteur, la chaîne de droits et la licence de
    redistribution du logo MAER utilisé par les clients ne sont pas confirmés.
    Ce point est un NO-GO public indépendant de la licence GPL du code.
-3. **Candidate locale uniquement** : l'installateur 1.3.1 actuel intègre le
+3. **Candidate locale uniquement** : l'installateur 1.3.2 actuel intègre le
    coffre, OMEMO et le Native Messaging et passe les contrôles automatisés,
    mais il reste une candidate locale non signée. L'ancien installateur 1.1.0
    ne doit pas être republié ni réutilisé sous un autre numéro de version.
@@ -52,10 +52,13 @@ npm run test:e2e
 npm run verify --prefix browser-extensions/maer-password-vault
 ```
 
-Le test visuel doit rester à zéro pixel modifié sur les quatre baselines MAER.
-Un smoke supplémentaire doit lancer `dist\win-unpacked\MAER Chat.exe` afin de
-vérifier le renderer ASAR, le WASM OMEMO, l'icône et le bridge privilégié dans
-les mêmes conditions que l'installateur.
+Le test visuel doit conserver la géométrie, les couleurs et les quatre
+baselines MAER dans les seuils automatisés du dépôt : au plus 0,5 % de pixels
+avec un delta supérieur à 16 et un delta moyen maximal de 0,1 %. Les baselines
+ne doivent jamais être régénérées sans revue visuelle explicite. Un smoke
+supplémentaire doit lancer `dist\win-unpacked\MAER Chat.exe` afin de vérifier
+le renderer ASAR, le WASM OMEMO, l'icône et le bridge privilégié dans les mêmes
+conditions que l'installateur.
 
 ## Licences et source correspondante
 

@@ -11,6 +11,30 @@ export interface CredentialBackend {
   listAccounts(): Promise<string[]>
 }
 
+/**
+ * Credential backend reserved for automated E2E runs.
+ *
+ * It deliberately neither reads nor writes the operating-system keyring. This
+ * keeps a temporary smoke profile from observing, replacing, or deleting a
+ * real MAER Chat credential, even if a future test accidentally requests
+ * persistence.
+ */
+class E2eCredentialBackend implements CredentialBackend {
+  async get(_account: string): Promise<undefined> {
+    return undefined
+  }
+
+  async set(_account: string, _value: string): Promise<void> {}
+
+  async delete(_account: string): Promise<boolean> {
+    return false
+  }
+
+  async listAccounts(): Promise<string[]> {
+    return []
+  }
+}
+
 export interface StoredCredential {
   version: 1
   authKind: 'password' | 'oauth'
@@ -113,4 +137,10 @@ export class WindowsCredentialBackend implements CredentialBackend {
     const credentials = await findCredentialsAsync(SERVICE)
     return credentials.map(({ account }) => account)
   }
+}
+
+export function createRuntimeCredentialStore(e2eMode: boolean): CredentialStore {
+  return new CredentialStore(
+    e2eMode ? new E2eCredentialBackend() : new WindowsCredentialBackend(),
+  )
 }

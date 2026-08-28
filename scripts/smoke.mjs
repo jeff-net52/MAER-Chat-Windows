@@ -453,6 +453,14 @@ try {
   assert.equal(await page.locator('[data-role="domain-suffix"]').textContent(), '@xmpp.maer.fr')
   assert.equal(await page.locator('#advanced-jid').count(), 0)
 
+  const rememberAccount = page.locator('#remember-account')
+  await rememberAccount.uncheck()
+  assert.equal(
+    await rememberAccount.isChecked(),
+    false,
+    'An E2E profile must never persist a credential in Windows Credential Manager',
+  )
+
   await page.fill('#account-id', 'test')
   await page.fill('#account-password', 'temporary-not-a-real-secret')
   await page.click('[data-action="toggle-password"]')

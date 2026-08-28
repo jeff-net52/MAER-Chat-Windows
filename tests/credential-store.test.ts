@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   CredentialStore,
+  createRuntimeCredentialStore,
   type CredentialBackend,
   type StoredCredential,
 } from '../src/main/credential-store'
@@ -34,6 +35,20 @@ const oauthCredential: StoredCredential = {
 }
 
 describe('CredentialStore', () => {
+  it('keeps E2E runs detached from the operating-system credential store', async () => {
+    const store = createRuntimeCredentialStore(true)
+
+    await store.save('alice@xmpp.maer.fr', {
+      version: 1,
+      authKind: 'password',
+      secret: 'must-not-persist',
+    })
+
+    await expect(store.load('alice@xmpp.maer.fr')).resolves.toBeUndefined()
+    await expect(store.listAccounts()).resolves.toEqual([])
+    await expect(store.delete('alice@xmpp.maer.fr')).resolves.toBe(false)
+  })
+
   it('stores and loads an OAuth credential under its bare JID', async () => {
     const backend = new MemoryBackend()
     const store = new CredentialStore(backend)
