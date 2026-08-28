@@ -391,18 +391,37 @@ try {
   assert.equal(runtimeVersion, expectedAppVersion)
 
   markPhase('renderer-assets')
-  const omemoWasm = await withDeadline('OMEMO WebAssembly verification', page.evaluate(async () => {
-    const response = await fetch(new URL('curve25519_compiled.wasm', document.baseURI))
-    assertResponse(response)
-    const bytes = await response.arrayBuffer()
+  const rendererAssets = await withDeadline('Converse runtime assets verification', page.evaluate(async () => {
+    const [wasmResponse, emojiResponse] = await Promise.all([
+      fetch(new URL('curve25519_compiled.wasm', document.baseURI)),
+      fetch(new URL('emoji.json', document.baseURI)),
+    ])
+    assertResponse(wasmResponse, 'OMEMO')
+    assertResponse(emojiResponse, 'emojis')
+    const [bytes, emojiCatalog] = await Promise.all([
+      wasmResponse.arrayBuffer(),
+      emojiResponse.json(),
+    ])
     await WebAssembly.compile(bytes)
-    return bytes.byteLength
+    const emojiCategories = Object.keys(emojiCatalog)
+    const emojiCount = Object.values(emojiCatalog).reduce(
+      (count, category) => count + Object.keys(category ?? {}).length,
+      0,
+    )
+    if (emojiCategories.length < 10 || emojiCount < 1_000) {
+      throw new Error('Le catalogue d’emojis Converse.js est incomplet.')
+    }
+    return {
+      omemoBytes: bytes.byteLength,
+      emojiCategories: emojiCategories.length,
+      emojiCount,
+    }
 
-    function assertResponse(value) {
-      if (!value.ok) throw new Error(`Chargement OMEMO impossible (${value.status}).`)
+    function assertResponse(value, label) {
+      if (!value.ok) throw new Error(`Chargement ${label} impossible (${value.status}).`)
     }
   }))
-  assert.ok(omemoWasm > 80_000, 'OMEMO WebAssembly asset is unexpectedly small')
+  assert.ok(rendererAssets.omemoBytes > 80_000, 'OMEMO WebAssembly asset is unexpectedly small')
 
   markPhase('plugin-status')
   const pluginStatus = await withDeadline(
@@ -474,7 +493,7 @@ try {
       throw new Error('Connected smoke JID must use the configured MAER domain.')
     }
     const identifier = connectedJid.slice(0, -suffix.length)
-    if (!identifier || identifier.includes('@')) {
+    if (!identifier || !/^[a-z0-9._-]+$/iu.test(identifier)) {
       throw new Error('Connected smoke JID is invalid.')
     }
     await page.fill('#account-id', identifier)
@@ -492,15 +511,56 @@ try {
         sidebar: { width: Math.round(sidebar.width), height: Math.round(sidebar.height) },
       }
     })
+    let connectedConversation
     if (connectedContactJid) {
+      const contactIdentifier = connectedContactJid.toLowerCase().endsWith(suffix)
+        ? connectedContactJid.slice(0, -suffix.length)
+        : ''
+      if (!contactIdentifier || !/^[a-z0-9._-]+$/iu.test(contactIdentifier)) {
+        throw new Error('Connected smoke contact JID is invalid.')
+      }
       const search = page.locator('[data-maer-conversation-search]')
       await search.fill(connectedContactJid)
-      const contact = page.getByText(connectedContactJid, { exact: false }).last()
-      await contact.click({ timeout: 15_000 })
-      await page.waitForSelector('.maer-audio-call, .maer-video-call, .maer-screen-call', { timeout: 15_000 })
+      const contact = page.locator(
+        `#controlbox #converse-roster a.open-chat[data-jid="${connectedContactJid}"]`,
+      ).first()
+      if (await contact.isVisible().catch(() => false)) {
+        await contact.click({ timeout: 15_000 })
+      } else {
+        await page.locator('[data-maer-conversation-action="new-chat"]').click()
+        const addContact = page.locator('form:has(input[name="jid"])')
+        await addContact.waitFor({ state: 'visible', timeout: 15_000 })
+        await addContact.locator('input[name="jid"]').fill(connectedContactJid)
+        await addContact.locator('input[name="name"]').fill(connectedContactJid)
+        await addContact.locator('button[type="submit"]').click()
+      }
+      const profileClose = page.locator(
+        'converse-profile-modal:visible [data-bs-dismiss="modal"], ' +
+        'converse-user-details-modal:visible [data-bs-dismiss="modal"]',
+      ).first()
+      if (await profileClose.isVisible().catch(() => false)) {
+        await profileClose.click()
+        await profileClose.waitFor({ state: 'hidden', timeout: 5_000 })
+      }
+      connectedConversation = page.locator(
+        `converse-chat[jid="${connectedContactJid}"]`,
+      )
+      await connectedConversation.waitFor({ state: 'visible', timeout: 15_000 })
+      const conversationCallButtons = connectedConversation.locator(
+        '.maer-audio-call, .maer-video-call, .maer-screen-call',
+      )
+      await conversationCallButtons.first().waitFor({ state: 'visible', timeout: 15_000 })
+      assert.equal(
+        await conversationCallButtons.count(),
+        3,
+        'Connected conversation must expose exactly three call actions',
+      )
     }
-    const callButtons = await page.locator('.maer-audio-call, .maer-video-call, .maer-screen-call').count()
-    if (connectedContactJid) assert.equal(callButtons, 3, 'Connected conversation must expose three call actions')
+    const callButtons = connectedConversation
+      ? await connectedConversation.locator(
+        '.maer-audio-call, .maer-video-call, .maer-screen-call',
+      ).count()
+      : 0
     const screenshotPath = path.join(root, '..', '.codex-tmp', 'smoke-connected-windows.png')
     await mkdir(path.dirname(screenshotPath), { recursive: true })
     await page.screenshot({ path: screenshotPath, fullPage: true })
@@ -569,6 +629,7 @@ try {
     browserExtensionsReady,
     nativeMessagingReady,
     omemoWasmLoaded: true,
+    emojiCatalogLoaded: rendererAssets.emojiCount > 1_000,
     networkFailureHandled,
     connectedResult,
   }))

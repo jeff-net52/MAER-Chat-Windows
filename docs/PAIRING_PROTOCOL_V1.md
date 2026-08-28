@@ -1,9 +1,9 @@
 # Protocole d’association MAER Chat — version 1
 
 > **Statut au 28 août 2026 :** le contrat est implémenté dans le client Windows
-> 1.3.2, dans le client Android MAER Chat 0.5.3 et dans `mod_maer_pairing`, livré
-> par le paquet Synology MAER XMPP Server rev9. La validation de bout en bout
-> sur le NAS cible reste obligatoire après l’installation de rev9 : création
+> 1.3.3, dans le client Android MAER Chat 0.5.4 et dans `mod_maer_pairing`, livré
+> par le paquet Synology MAER XMPP Server rev10. La validation de bout en bout
+> sur le NAS cible reste obligatoire après l’installation de rev10 : création
 > d’une session, scan Android, approbation, connexion SASL `X-OAUTH2`, liste et
 > révocation de l’appareil.
 
@@ -11,9 +11,9 @@
 
 | Composant | Version | État du contrat v1 |
 | --- | --- | --- |
-| MAER Chat Windows | 1.3.2 | Création/annulation de session HTTPS, QR canonique, signatures Ed25519 de consultation, polling borné, connexion OAuth et stockage du jeton dans le Gestionnaire d’identifiants Windows. Le profil automatisé E2E utilise volontairement un backend mémoire vide et ne lit ni n’écrit aucun secret système. |
-| MAER Chat Android | 0.5.3 | Lecture stricte de `maerchat://pair`, prélecture `inspect`, confirmation humaine, approbation, protection locale contre le rejeu, liste et révocation des appareils liés. |
-| MAER XMPP Server | rev9 | Handler HTTPS `/maer-pairing/v1`, IQ `inspect`/`approve`/`devices`/`revoke`, émission OAuth limitée à `sasl_auth`, registre Mnesia persistant et révocation ciblée des sessions liées. |
+| MAER Chat Windows | 1.3.3 | Création/annulation de session HTTPS, QR canonique, signatures Ed25519 de consultation, polling borné, connexion OAuth et stockage du jeton dans le Gestionnaire d’identifiants Windows. Le profil automatisé E2E utilise volontairement un backend mémoire vide et ne lit ni n’écrit aucun secret système. |
+| MAER Chat Android | 0.5.4 | Lecture stricte de `maerchat://pair`, prélecture `inspect`, confirmation humaine, approbation, protection locale contre le rejeu, liste et révocation des appareils liés. |
+| MAER XMPP Server | rev10 | Handler HTTPS `/maer-pairing/v1`, IQ `inspect`/`approve`/`devices`/`revoke`, émission OAuth limitée à `sasl_auth`, registre Mnesia persistant et révocation ciblée des sessions liées. |
 
 Ces lignes décrivent le code et les tests automatisés livrés. Elles ne
 remplacent pas le test d’intégration physique Windows ↔ NAS ↔ Android demandé
@@ -41,7 +41,7 @@ API HTTPS : `https://xmpp.maer.fr/maer-pairing/v1`
   "client_public_key": "<Ed25519 SPKI DER, base64>",
   "device_name": "PC Atelier",
   "platform": "windows",
-  "app_version": "1.3.2"
+  "app_version": "1.3.3"
 }
 ```
 

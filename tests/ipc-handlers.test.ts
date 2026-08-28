@@ -78,14 +78,14 @@ describe('desktop IPC handlers', () => {
     await expect(
       handlers.preparePasswordLogin({
         identifier: 'edouard',
-        password: 'Edouard123abc',
+        password: 'fictional-test-secret-42',
         remember: true,
       }),
     ).resolves.toMatchObject({
       jid: 'edouard@xmpp.maer.fr',
       credential: {
         authKind: 'password',
-        secret: 'Edouard123abc',
+        secret: 'fictional-test-secret-42',
       },
     })
   })

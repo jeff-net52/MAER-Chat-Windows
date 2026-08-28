@@ -12,7 +12,7 @@ blocages ci-dessous ne sont pas levés.
 2. **Logo bloquant** : l'auteur, la chaîne de droits et la licence de
    redistribution du logo MAER utilisé par les clients ne sont pas confirmés.
    Ce point est un NO-GO public indépendant de la licence GPL du code.
-3. **Candidate locale uniquement** : l'installateur 1.3.2 actuel intègre le
+3. **Candidate locale uniquement** : l'installateur 1.3.3 actuel intègre le
    coffre, OMEMO et le Native Messaging et passe les contrôles automatisés,
    mais il reste une candidate locale non signée. L'ancien installateur 1.1.0
    ne doit pas être republié ni réutilisé sous un autre numéro de version.

@@ -13,6 +13,10 @@ const CONVERSE_RUNTIME_ASSETS = [
     source: ['curve25519_compiled.wasm'],
     target: ['curve25519_compiled.wasm'],
   },
+  {
+    source: ['emoji.json'],
+    target: ['emoji.json'],
+  },
   ...FRENCH_CONVERSE_LOCALES.map((locale) => ({
     source: ['chunkjs', 'locales', locale],
     target: ['assets', 'chunkjs', 'locales', locale],
