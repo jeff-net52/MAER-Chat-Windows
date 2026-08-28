@@ -128,6 +128,7 @@
       "oneClick": false,
       "perMachine": false,
       "allowToChangeInstallationDirectory": true,
+      "uninstallDisplayName": "${productName} ${version}",
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "MAER Chat",

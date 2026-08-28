@@ -174,7 +174,7 @@ describe('Native Messaging launch identity and installation', () => {
         afterPack: string
         electronFuses?: Record<string, boolean>
         extraResources: unknown
-        nsis: { include: string }
+        nsis: { include: string; uninstallDisplayName: string }
       }
     }
     expect(packageJson.build.beforePack).toBe('scripts/build-native-host-shim.mjs')
@@ -200,6 +200,19 @@ describe('Native Messaging launch identity and installation', () => {
     }
     expect(packageJson.build.extraResources).toBeDefined()
     expect(packageJson.build.nsis.include).toBe('build/installer.nsh')
+    expect(packageJson.build.nsis.uninstallDisplayName).toBe('${productName} ${version}')
+
+    const installer = readFileSync(
+      resolve(repository, packageJson.build.nsis.include),
+      'utf8',
+    )
+    expect(installer).toContain(
+      'WriteRegStr SHELL_CONTEXT "${UNINSTALL_REGISTRY_KEY}" "DisplayName" "${UNINSTALL_DISPLAY_NAME}"',
+    )
+    expect(installer).toContain(
+      'WriteRegStr SHELL_CONTEXT "${UNINSTALL_REGISTRY_KEY}" "DisplayVersion" "${VERSION}"',
+    )
+    expect(installer).not.toMatch(/DisplayVersion[^\r\n]+\d+\.\d+\.\d+/u)
   })
 
   it('ships an auditable fail-closed shim built by an explicit C# compiler path', () => {

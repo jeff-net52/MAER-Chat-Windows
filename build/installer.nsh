@@ -8,6 +8,11 @@
     MessageBox MB_ICONSTOP "L’installation du pont navigateur MAER Password Vault a échoué."
     Abort
   ${EndIf}
+
+  ; Keep Windows Apps & Features metadata aligned with the payload after an
+  ; upgrade, even if a previous uninstall entry was retained by Windows.
+  WriteRegStr SHELL_CONTEXT "${UNINSTALL_REGISTRY_KEY}" "DisplayName" "${UNINSTALL_DISPLAY_NAME}"
+  WriteRegStr SHELL_CONTEXT "${UNINSTALL_REGISTRY_KEY}" "DisplayVersion" "${VERSION}"
 !macroend
 
 !macro customUnInstall
