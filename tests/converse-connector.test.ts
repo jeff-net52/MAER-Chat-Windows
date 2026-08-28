@@ -94,6 +94,27 @@ describe('ConverseChatConnector', () => {
     expect(fake.privateApi.user.logout).toHaveBeenCalledOnce()
   })
 
+  it('passes the X-OAUTH2 constructor to Strophe for QR credentials', async () => {
+    const connector = new ConverseChatConnector()
+
+    await connector.connect({
+      ...request,
+      authKind: 'oauth',
+    })
+
+    const connectionOptions = fake.state.lastConfiguration?.connection_options as
+      | { mechanisms?: unknown[] }
+      | undefined
+    expect(connectionOptions?.mechanisms).toEqual([
+      fake.runtime.env.Strophe.SASLXOAuth2,
+    ])
+    const Mechanism = connectionOptions?.mechanisms?.[0] as
+      | (new () => unknown)
+      | undefined
+    expect(Mechanism).toBeTypeOf('function')
+    expect(() => new Mechanism!()).not.toThrow()
+  })
+
   it('adds audio, video and screen-sharing actions to chat headers', async () => {
     const connector = new ConverseChatConnector()
     await connector.connect(request)

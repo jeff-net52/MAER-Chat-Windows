@@ -304,7 +304,7 @@ export class ConverseChatConnector implements ChatConnector {
       if (oauthOnly) {
         const Mechanism = converse.env.Strophe.SASLXOAuth2
         configuration.connection_options = {
-          mechanisms: [new Mechanism()],
+          mechanisms: [Mechanism],
         }
       }
 
